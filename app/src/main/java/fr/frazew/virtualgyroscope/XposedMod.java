@@ -47,10 +47,10 @@ public class XposedMod implements IXposedHookLoadPackage {
             XposedBridge.hookAllMethods(sensorMgrNiantic, "onSensorChanged", new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    XposedBridge.log("VirtualSensor: Pokémon GO onSensorChanged with sensor type " + (android.os.Build.VERSION.SDK_INT >= 20 ? ((SensorEvent) (param.args[0])).sensor.getStringType() : ((SensorEvent) (param.args[0])).sensor.getType()));
+                    //XposedBridge.log("VirtualSensor: Pokémon GO onSensorChanged with sensor type " + (android.os.Build.VERSION.SDK_INT >= 20 ? ((SensorEvent) (param.args[0])).sensor.getStringType() : ((SensorEvent) (param.args[0])).sensor.getType()));
                     if (((SensorEvent) (param.args[0])).sensor.getType() == Sensor.TYPE_GYROSCOPE) {
                         float[] values = ((SensorEvent) (param.args[0])).values;
-                        XposedBridge.log("VirtualSensor: Pokémon GO gyroscope values are x=" + values[0] + ",y=" + values[1] + ",z=" + values[2]);
+                        //XposedBridge.log("VirtualSensor: Pokémon GO gyroscope values are x=" + values[0] + ",y=" + values[1] + ",z=" + values[2]);
                     }
                 }
             });
@@ -163,31 +163,45 @@ public class XposedMod implements IXposedHookLoadPackage {
                                 virtualListener.sensorRef = sensors.get(Sensor.TYPE_ROTATION_VECTOR);
                             else
                                 virtualListener.sensorRef = sensors.get(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR);
-                        } else if (virtualListener.getSensor().getType() == Sensor.TYPE_GRAVITY) { // Calculations are completely wrong, this is just a test
+                        } else if (virtualListener.getSensor().getType() == Sensor.TYPE_GRAVITY) {
                             float[] values = new float[3];
                             float[] rotationMatrix = new float[9];
-                            SensorManager.getRotationMatrix(rotationMatrix, null, this.accelerometerValues, this.magneticValues);
-                            float[] quaternion = rotationMatrixToQuaternion(rotationMatrix);
+                            float[] gravity = new float[] {0F, 0F, 9.81F};
 
-                            float angle = 2 * (float) Math.asin(quaternion[0]);
-                            float sin = (float) Math.sin(angle / 2);
-                            values[0] = (quaternion[1]) * sin - this.accelerometerValues[0];
-                            values[1] = (quaternion[2]) * sin - this.accelerometerValues[1];
-                            values[2] = (quaternion[3]) * sin - this.accelerometerValues[2];
+                            SensorManager.getRotationMatrix(rotationMatrix, null, this.accelerometerValues, this.magneticValues);
+                            float x = rotationMatrix[0] * this.accelerometerValues[0] + rotationMatrix[1] * this.accelerometerValues[1] + rotationMatrix[2] * this.accelerometerValues[2];
+                            float y = rotationMatrix[3] * this.accelerometerValues[0] + rotationMatrix[4] * this.accelerometerValues[1] + rotationMatrix[5] * this.accelerometerValues[2];
+                            float z = rotationMatrix[6] * this.accelerometerValues[0] + rotationMatrix[7] * this.accelerometerValues[1] + rotationMatrix[8] * this.accelerometerValues[2];
+
+                            float[] gravityRot = new float[3];
+                            gravityRot[0] = gravity[0] * rotationMatrix[0] + gravity[1] * rotationMatrix[3] + gravity[2] * rotationMatrix[6];
+                            gravityRot[1] = gravity[0] * rotationMatrix[1] + gravity[1] * rotationMatrix[4] + gravity[2] * rotationMatrix[7];
+                            gravityRot[2] = gravity[0] * rotationMatrix[2] + gravity[1] * rotationMatrix[5] + gravity[2] * rotationMatrix[8];
+
+                            values[0] = gravityRot[0];
+                            values[1] = gravityRot[1];
+                            values[2] = gravityRot[2];
 
                             System.arraycopy(values, 0, (float[]) param.args[1], 0, values.length);
                             virtualListener.sensorRef = sensors.get(Sensor.TYPE_GRAVITY);
-                        } else if (virtualListener.getSensor().getType() == Sensor.TYPE_LINEAR_ACCELERATION) { // Calculations are completely wrong, this is just a test
+                        } else if (virtualListener.getSensor().getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
                             float[] values = new float[3];
                             float[] rotationMatrix = new float[9];
-                            SensorManager.getRotationMatrix(rotationMatrix, null, this.accelerometerValues, this.magneticValues);
-                            float[] quaternion = rotationMatrixToQuaternion(rotationMatrix);
+                            float[] gravity = new float[] {0F, 0F, 9.81F};
 
-                            float angle = 2 * (float) Math.asin(quaternion[0]);
-                            float sin = (float) Math.sin(angle / 2);
-                            values[0] = this.accelerometerValues[0] + ((quaternion[1]) * sin - this.accelerometerValues[0]);
-                            values[1] = this.accelerometerValues[1] + ((quaternion[1]) * sin - this.accelerometerValues[1]);
-                            values[2] = this.accelerometerValues[2] + ((quaternion[1]) * sin - this.accelerometerValues[2]);
+                            SensorManager.getRotationMatrix(rotationMatrix, null, this.accelerometerValues, this.magneticValues);
+                            float x = rotationMatrix[0] * this.accelerometerValues[0] + rotationMatrix[1] * this.accelerometerValues[1] + rotationMatrix[2] * this.accelerometerValues[2];
+                            float y = rotationMatrix[3] * this.accelerometerValues[0] + rotationMatrix[4] * this.accelerometerValues[1] + rotationMatrix[5] * this.accelerometerValues[2];
+                            float z = rotationMatrix[6] * this.accelerometerValues[0] + rotationMatrix[7] * this.accelerometerValues[1] + rotationMatrix[8] * this.accelerometerValues[2];
+
+                            float[] gravityRot = new float[3];
+                            gravityRot[0] = gravity[0] * rotationMatrix[0] + gravity[1] * rotationMatrix[3] + gravity[2] * rotationMatrix[6];
+                            gravityRot[1] = gravity[0] * rotationMatrix[1] + gravity[1] * rotationMatrix[4] + gravity[2] * rotationMatrix[7];
+                            gravityRot[2] = gravity[0] * rotationMatrix[2] + gravity[1] * rotationMatrix[5] + gravity[2] * rotationMatrix[8];
+
+                            values[0] = this.accelerometerValues[0] - gravityRot[0];
+                            values[1] = this.accelerometerValues[1] - gravityRot[1];
+                            values[2] = this.accelerometerValues[2] - gravityRot[2];
 
                             System.arraycopy(values, 0, (float[]) param.args[1], 0, values.length);
                             virtualListener.sensorRef = sensors.get(Sensor.TYPE_LINEAR_ACCELERATION);
@@ -197,6 +211,31 @@ public class XposedMod implements IXposedHookLoadPackage {
             }
         });
     }
+
+    /*
+        This uses the Hamilton product to multiply the vector converted to a quaternion with the rotation quaternion.
+        Returns a new quaternion which is the rotated vector.
+        Source:  https://en.wikipedia.org/wiki/Quaternion#Hamilton_product
+     */
+    public float[] rotateVectorByQuaternion(float[] vector, float[] quaternion) {
+        float a = vector[0];
+        float b = vector[1];
+        float c = vector[2];
+        float d = vector[3];
+
+        float A = quaternion[0];
+        float B = quaternion[1];
+        float C = quaternion[2];
+        float D = quaternion[3];
+
+        float newQuaternionReal = a*A - b*B - c*C - d*D;
+        float newQuaternioni = a*B + b*A + c*D - d*C;
+        float newQuaternionj = a*C - b*D + c*A + d*B;
+        float newQuaternionk = a*D + b*C - c*B + d*A;
+
+        return new float[] {newQuaternionReal, newQuaternioni, newQuaternionj, newQuaternionk};
+    }
+
 
     /*
         Credit for this code goes to http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
