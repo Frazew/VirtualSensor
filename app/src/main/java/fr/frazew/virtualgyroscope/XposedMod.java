@@ -36,8 +36,7 @@ public class XposedMod implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(final LoadPackageParam lpparam) throws Throwable {
         if(lpparam.packageName.equals("android")) {
-            // Disabled temporarily as it is not yet compatible with all supported SDK versions (at least I haven't verified wether it is or not)
-            //hookPackageFeatures(lpparam);
+            hookPackageFeatures(lpparam);
         }
         hookSensorValues(lpparam);
         addSensors(lpparam);
@@ -60,23 +59,66 @@ public class XposedMod implements IXposedHookLoadPackage {
 
     @SuppressWarnings("unchecked")
     private void hookPackageFeatures(final LoadPackageParam lpparam) {
-        Class<?> pkgMgrSrv = XposedHelpers.findClass("com.android.server.SystemConfig", lpparam.classLoader);
-        XposedBridge.hookAllMethods(pkgMgrSrv, "getAvailableFeatures", new XC_MethodHook() {
-            @Override
-            protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                Map<String, FeatureInfo> mAvailableFeatures = (Map<String, FeatureInfo>) param.getResult();
-                int openGLEsVersion = (int) XposedHelpers.callStaticMethod(XposedHelpers.findClass("android.os.SystemProperties", lpparam.classLoader), "getInt", "ro.opengles.version", FeatureInfo.GL_ES_VERSION_UNDEFINED);
-                if (!mAvailableFeatures.containsKey(PackageManager.FEATURE_SENSOR_GYROSCOPE)) {
-                    FeatureInfo gyro = new FeatureInfo();
-                    gyro.name = PackageManager.FEATURE_SENSOR_GYROSCOPE;
-                    gyro.reqGlEsVersion = openGLEsVersion;
-                    mAvailableFeatures.put(PackageManager.FEATURE_SENSOR_GYROSCOPE, gyro);
+        if (Build.VERSION.SDK_INT >= 21) {
+            Class<?> pkgMgrSrv = XposedHelpers.findClass("com.android.server.SystemConfig", lpparam.classLoader);
+            XposedBridge.hookAllMethods(pkgMgrSrv, "getAvailableFeatures", new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    Map<String, FeatureInfo> mAvailableFeatures = (Map<String, FeatureInfo>) param.getResult();
+                    int openGLEsVersion = (int) XposedHelpers.callStaticMethod(XposedHelpers.findClass("android.os.SystemProperties", lpparam.classLoader), "getInt", "ro.opengles.version", FeatureInfo.GL_ES_VERSION_UNDEFINED);
+                    if (!mAvailableFeatures.containsKey(PackageManager.FEATURE_SENSOR_GYROSCOPE)) {
+                        FeatureInfo gyro = new FeatureInfo();
+                        gyro.name = PackageManager.FEATURE_SENSOR_GYROSCOPE;
+                        gyro.reqGlEsVersion = openGLEsVersion;
+                        mAvailableFeatures.put(PackageManager.FEATURE_SENSOR_GYROSCOPE, gyro);
+                    }
+                    XposedHelpers.setObjectField(param.thisObject, "mAvailableFeatures", mAvailableFeatures);
+                    param.setResult(mAvailableFeatures);
                 }
-                XposedHelpers.setObjectField(param.thisObject, "mAvailableFeatures", mAvailableFeatures);
-                param.setResult(mAvailableFeatures);
-            }
-        });
+            });
+        } else {
+            Class<?> pkgMgrSrv = XposedHelpers.findClass("com.android.server.pm.PackageManagerService", lpparam.classLoader);
+            XposedBridge.hookAllMethods(pkgMgrSrv, "getSystemAvailableFeatures", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    if (param.getResult() != null) {
+                        Object mPackages = XposedHelpers.getObjectField(param.thisObject, "mPackages");
+                        synchronized (mPackages) {
+                            Map<String, FeatureInfo> mAvailableFeatures = (Map<String, FeatureInfo>) XposedHelpers.getObjectField(param.thisObject, "mAvailableFeatures");
+                            int openGLEsVersion = (int) XposedHelpers.callStaticMethod(XposedHelpers.findClass("android.os.SystemProperties", lpparam.classLoader), "getInt", "ro.opengles.version", FeatureInfo.GL_ES_VERSION_UNDEFINED);
+                            if (!mAvailableFeatures.containsKey(PackageManager.FEATURE_SENSOR_GYROSCOPE)) {
+                                FeatureInfo gyro = new FeatureInfo();
+                                gyro.name = PackageManager.FEATURE_SENSOR_GYROSCOPE;
+                                gyro.reqGlEsVersion = openGLEsVersion;
+                                mAvailableFeatures.put(PackageManager.FEATURE_SENSOR_GYROSCOPE, gyro);
+                            }
+                            XposedHelpers.setObjectField(param.thisObject, "mAvailableFeatures", mAvailableFeatures);
+                        }
+                    }
+                }
+            });
+
+            XposedBridge.hookAllMethods(pkgMgrSrv, "hasSystemFeature", new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    if (!(boolean)param.getResult() && (String)param.args[0] == PackageManager.FEATURE_SENSOR_GYROSCOPE) {
+                        Object mPackages = XposedHelpers.getObjectField(param.thisObject, "mPackages");
+                        synchronized (mPackages) {
+                            Map<String, FeatureInfo> mAvailableFeatures = (Map<String, FeatureInfo>) param.getResult();
+                            int openGLEsVersion = (int) XposedHelpers.callStaticMethod(XposedHelpers.findClass("android.os.SystemProperties", lpparam.classLoader), "getInt", "ro.opengles.version", FeatureInfo.GL_ES_VERSION_UNDEFINED);
+                            FeatureInfo gyro = new FeatureInfo();
+                            gyro.name = PackageManager.FEATURE_SENSOR_GYROSCOPE;
+                            gyro.reqGlEsVersion = openGLEsVersion;
+                            mAvailableFeatures.put(PackageManager.FEATURE_SENSOR_GYROSCOPE, gyro);
+                            XposedHelpers.setObjectField(param.thisObject, "mAvailableFeatures", mAvailableFeatures);
+                            param.setResult(true);
+                        }
+                    }
+                }
+            });
+        }
     }
+
     private void hookSensorValues(final LoadPackageParam lpparam) {
         if (Build.VERSION.SDK_INT >= 18) {
             XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue", lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class, new SensorChangeHook.API18Plus(lpparam));
