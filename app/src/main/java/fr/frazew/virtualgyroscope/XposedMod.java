@@ -30,7 +30,7 @@ public class XposedMod implements IXposedHookLoadPackage {
         put(Sensor.TYPE_GYROSCOPE, new SensorModel(Sensor.TYPE_GYROSCOPE, "VirtualSensor Gyroscope", -1, 0.01F, -1, (float)Math.PI));
         put(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, "VirtualSensor GeomagneticRotationVector", -1, 0.01F, -1, -1));
         put(Sensor.TYPE_GRAVITY, new SensorModel(Sensor.TYPE_GRAVITY, "VirtualSensor Gravity", -1, 0.01F, -1, -1));
-        put(Sensor.TYPE_LINEAR_ACCELERATION, new SensorModel(Sensor.TYPE_LINEAR_ACCELERATION, "VirtualSensor LinearAcceleration", 4242, 0.01F, -1, -1));
+        put(Sensor.TYPE_LINEAR_ACCELERATION, new SensorModel(Sensor.TYPE_LINEAR_ACCELERATION, "VirtualSensor LinearAcceleration", 4242, 0.01F, -1, -1)); // Had to use another handle as it broke the magnetic sensor's readings (?!)
     }};
 
     @Override
@@ -305,12 +305,12 @@ public class XposedMod implements IXposedHookLoadPackage {
 
     @SuppressWarnings("unchecked")
     private void addSensors(final LoadPackageParam lpparam) {
-        XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager", lpparam.classLoader, "getFullSensorList", new XC_MethodHook() {
-
+        XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager", lpparam.classLoader, android.content.Context.class, android.os.Looper.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                ArrayList<Sensor> mFullSensorList = (ArrayList<Sensor>) param.getResult();
-                Iterator<Sensor> iterator = mFullSensorList.iterator();
+                super.afterHookedMethod(param);
+                ArrayList<Sensor> mFullSensorsList = (ArrayList<Sensor>) XposedHelpers.getObjectField(param.thisObject, "mFullSensorsList");
+                Iterator<Sensor> iterator = mFullSensorsList.iterator();
                 SparseArray<Sensor> mHandleToSensor = (SparseArray<Sensor>) XposedHelpers.getObjectField(param.thisObject, "mHandleToSensor");
 
                 int minDelayAccelerometer = mHandleToSensor.get(Sensor.TYPE_ACCELEROMETER).getMinDelay();
@@ -345,15 +345,15 @@ public class XposedMod implements IXposedHookLoadPackage {
                         XposedHelpers.setObjectField(s, "mHandle", model.handle);
                         XposedHelpers.setObjectField(s, "mMinDelay", model.minDelay == -1 ? minDelayAccelerometer : model.minDelay);
                         XposedHelpers.setObjectField(s, "mResolution", model.resolution == -1 ? 0.01F : model.resolution); // This 0.01F is a placeholder, it doesn't seem to change anything but I keep it
-                        if (model.maxRange != -1) XposedHelpers.setObjectField(s, "mMaxRange", model.maxRange);
-                        mFullSensorList.add(s);
+                        if (model.maxRange != -1)
+                            XposedHelpers.setObjectField(s, "mMaxRange", model.maxRange);
+                        mFullSensorsList.add(s);
                         mHandleToSensor.append(model.handle, s);
                     }
                 }
 
                 XposedHelpers.setObjectField(param.thisObject, "mHandleToSensor", mHandleToSensor);
-                XposedHelpers.setObjectField(param.thisObject, "mFullSensorsList", mFullSensorList);
-                param.setResult(mFullSensorList);
+                XposedHelpers.setObjectField(param.thisObject, "mFullSensorsList", mFullSensorsList);
             }
         });
 
