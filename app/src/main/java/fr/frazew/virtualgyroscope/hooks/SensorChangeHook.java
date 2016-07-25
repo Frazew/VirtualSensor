@@ -131,6 +131,12 @@ public class SensorChangeHook {
         float[] prevRotationMatrix = new float[9];
         long prevTimestamp = 0;
 
+        // Stores the magnetic values read each second for the last 10 seconds (approximately, it depends on the delay of the sensors currently used)
+        float[][] oneSecondIntervalMagneticValues = new float[10][3];
+        long lastMagneticValuesIntervalRead = 0;
+        long lastMessage = 0;
+        int magneticValuesIntervalCount = 0;
+
         private XC_LoadPackage.LoadPackageParam lpparam;
 
         public API1617(XC_LoadPackage.LoadPackageParam lpparam) {
@@ -152,6 +158,24 @@ public class SensorChangeHook {
                 }
                 if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
                     this.magneticValues = ((float[]) (param.args[1])).clone();
+                    if (Math.abs(lastMagneticValuesIntervalRead - ((long[]) param.args[2])[0]) * NS2S >= 1) {
+                        this.oneSecondIntervalMagneticValues[this.magneticValuesIntervalCount] = this.magneticValues;
+                        this.lastMagneticValuesIntervalRead = ((long[]) param.args[2])[0];
+                        this.magneticValuesIntervalCount++;
+                        if (this.magneticValuesIntervalCount > 9) this.magneticValuesIntervalCount = 0;
+                    }
+                }
+
+                /*
+                    Check that the readings from the magnetic field are not too wrong. If they have been 0 or close to 0 for the last 10 seconds, we can safely assume there's a problem
+                 */
+                float lastMagneticValuesXSum = this.oneSecondIntervalMagneticValues[0][0]+this.oneSecondIntervalMagneticValues[1][0]+this.oneSecondIntervalMagneticValues[2][0]+this.oneSecondIntervalMagneticValues[3][0]+this.oneSecondIntervalMagneticValues[4][0]+this.oneSecondIntervalMagneticValues[5][0]+this.oneSecondIntervalMagneticValues[6][0]+this.oneSecondIntervalMagneticValues[7][0]+this.oneSecondIntervalMagneticValues[8][0]+this.oneSecondIntervalMagneticValues[9][0];
+                float lastMagneticValuesYSum = this.oneSecondIntervalMagneticValues[0][1]+this.oneSecondIntervalMagneticValues[1][1]+this.oneSecondIntervalMagneticValues[2][1]+this.oneSecondIntervalMagneticValues[3][1]+this.oneSecondIntervalMagneticValues[4][1]+this.oneSecondIntervalMagneticValues[5][1]+this.oneSecondIntervalMagneticValues[6][1]+this.oneSecondIntervalMagneticValues[7][1]+this.oneSecondIntervalMagneticValues[8][1]+this.oneSecondIntervalMagneticValues[9][1];
+                float lastMagneticValuesZSum = this.oneSecondIntervalMagneticValues[0][1]+this.oneSecondIntervalMagneticValues[1][2]+this.oneSecondIntervalMagneticValues[2][2]+this.oneSecondIntervalMagneticValues[3][2]+this.oneSecondIntervalMagneticValues[4][2]+this.oneSecondIntervalMagneticValues[5][2]+this.oneSecondIntervalMagneticValues[6][2]+this.oneSecondIntervalMagneticValues[7][2]+this.oneSecondIntervalMagneticValues[8][2]+this.oneSecondIntervalMagneticValues[9][2];
+
+                if ((Math.abs(lastMagneticValuesXSum/10) == 0.0F || Math.abs(lastMagneticValuesYSum/10) == 0.0F || Math.abs(lastMagneticValuesZSum/10) == 0.0F) && Math.abs(lastMessage - ((long[]) param.args[2])[0]) * NS2S >= 10) {
+                    XposedBridge.log("VirtualSensor: Magnetic values are likely to be wrong, if this message seems to appear often, it is likely that there is a problem");
+                    this.lastMessage = ((long[]) param.args[2])[0];
                 }
 
                 List<Object> list = changeSensorValues(s, this.accelerometerValues, this.magneticValues, listener, this.prevRotationMatrix, ((long[]) param.args[2])[0], this.prevTimestamp, this.prevValues, this.lastFilterValues, sensors);
@@ -178,6 +202,12 @@ public class SensorChangeHook {
         float[] prevRotationMatrix = new float[9];
         long prevTimestamp = 0;
 
+        // Stores the magnetic values read each second for the last 10 seconds (approximately, it depends on the delay of the sensors currently used)
+        float[][] oneSecondIntervalMagneticValues = new float[10][3];
+        long lastMagneticValuesIntervalRead = 0;
+        long lastMessage = 0;
+        int magneticValuesIntervalCount = 0;
+
         private XC_LoadPackage.LoadPackageParam lpparam;
 
         public API18Plus(XC_LoadPackage.LoadPackageParam lpparam) {
@@ -201,6 +231,24 @@ public class SensorChangeHook {
                 }
                 if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
                     this.magneticValues = ((float[]) (param.args[1])).clone();
+                    if (Math.abs(lastMagneticValuesIntervalRead - (long) param.args[3]) * NS2S >= 1) {
+                        this.oneSecondIntervalMagneticValues[this.magneticValuesIntervalCount] = this.magneticValues;
+                        this.lastMagneticValuesIntervalRead = (long) param.args[3];
+                        this.magneticValuesIntervalCount++;
+                        if (this.magneticValuesIntervalCount > 9) this.magneticValuesIntervalCount = 0;
+                    }
+                }
+
+                /*
+                    Check that the readings from the magnetic field are not too wrong. If they have been 0 or close to 0 for the last 10 seconds, we can safely assume there's a problem
+                 */
+                float lastMagneticValuesXSum = this.oneSecondIntervalMagneticValues[0][0]+this.oneSecondIntervalMagneticValues[1][0]+this.oneSecondIntervalMagneticValues[2][0]+this.oneSecondIntervalMagneticValues[3][0]+this.oneSecondIntervalMagneticValues[4][0]+this.oneSecondIntervalMagneticValues[5][0]+this.oneSecondIntervalMagneticValues[6][0]+this.oneSecondIntervalMagneticValues[7][0]+this.oneSecondIntervalMagneticValues[8][0]+this.oneSecondIntervalMagneticValues[9][0];
+                float lastMagneticValuesYSum = this.oneSecondIntervalMagneticValues[0][1]+this.oneSecondIntervalMagneticValues[1][1]+this.oneSecondIntervalMagneticValues[2][1]+this.oneSecondIntervalMagneticValues[3][1]+this.oneSecondIntervalMagneticValues[4][1]+this.oneSecondIntervalMagneticValues[5][1]+this.oneSecondIntervalMagneticValues[6][1]+this.oneSecondIntervalMagneticValues[7][1]+this.oneSecondIntervalMagneticValues[8][1]+this.oneSecondIntervalMagneticValues[9][1];
+                float lastMagneticValuesZSum = this.oneSecondIntervalMagneticValues[0][1]+this.oneSecondIntervalMagneticValues[1][2]+this.oneSecondIntervalMagneticValues[2][2]+this.oneSecondIntervalMagneticValues[3][2]+this.oneSecondIntervalMagneticValues[4][2]+this.oneSecondIntervalMagneticValues[5][2]+this.oneSecondIntervalMagneticValues[6][2]+this.oneSecondIntervalMagneticValues[7][2]+this.oneSecondIntervalMagneticValues[8][2]+this.oneSecondIntervalMagneticValues[9][2];
+
+                if ((Math.abs(lastMagneticValuesXSum/10) == 0.0F || Math.abs(lastMagneticValuesYSum/10) == 0.01F || Math.abs(lastMagneticValuesZSum/10) == 0.01F) && Math.abs(lastMessage - (long) param.args[3]) * NS2S >= 10) {
+                    XposedBridge.log("VirtualSensor: Magnetic values are likely to be wrong, if this message seems to appear often, it is likely that there is a problem");
+                    this.lastMessage = (long) param.args[3];
                 }
 
                 List<Object> list = changeSensorValues(s, this.accelerometerValues, this.magneticValues, listener, this.prevRotationMatrix, (long) param.args[3], this.prevTimestamp, this.prevValues, this.lastFilterValues, sensors);
