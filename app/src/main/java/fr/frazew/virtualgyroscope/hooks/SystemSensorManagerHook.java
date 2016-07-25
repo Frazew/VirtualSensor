@@ -20,13 +20,13 @@ public class SystemSensorManagerHook {
     public static List<Object> fillSensorLists(ArrayList<Sensor> fullSensorList, SparseArray<Sensor> handleToSensor, XC_LoadPackage.LoadPackageParam lpparam) throws IllegalAccessException, InstantiationException, InvocationTargetException {
         Iterator<Sensor> iterator = fullSensorList.iterator();
 
-        int minDelayAccelerometer = handleToSensor.get(Sensor.TYPE_ACCELEROMETER).getMinDelay();
-
+        int minDelayAccelerometer = 0;
         while (iterator.hasNext()) {
             Sensor sensor = iterator.next();
             if (XposedMod.sensorsToEmulate.indexOfKey(sensor.getType()) >= 0) {
                 XposedMod.sensorsToEmulate.get(sensor.getType()).alreadyThere = true;
             }
+            if (sensor.getType() == Sensor.TYPE_ACCELEROMETER) minDelayAccelerometer = sensor.getMinDelay();
         }
 
         XposedHelpers.findConstructorBestMatch(Sensor.class).setAccessible(true);
