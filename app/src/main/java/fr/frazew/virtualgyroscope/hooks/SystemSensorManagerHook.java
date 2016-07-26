@@ -54,10 +54,10 @@ public class SystemSensorManagerHook {
                 XposedHelpers.setObjectField(s, "mResolution", model.resolution == -1 ? 0.01F : model.resolution); // This 0.01F is a placeholder, it doesn't seem to change anything but I keep it
                 if (model.maxRange != -1)
                     XposedHelpers.setObjectField(s, "mMaxRange", model.maxRange);
-                XposedHelpers.setObjectField(s, "mStringType", model.stringType);
-                if (!model.permission.equals("none")) {
+
+                if (!model.permission.equals("none"))
                     XposedHelpers.setObjectField(s, "mRequiredPermission", model.permission);
-                }
+
                 fullSensorList.add(s);
                 handleToSensor.append(model.handle, s);
             }

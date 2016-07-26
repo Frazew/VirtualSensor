@@ -2,6 +2,7 @@ package fr.frazew.virtualgyroscope.hooks;
 
 import android.hardware.Sensor;
 import android.hardware.SensorManager;
+import android.os.Build;
 import android.util.SparseArray;
 
 import java.util.ArrayList;
@@ -53,7 +54,7 @@ public class SensorChangeHook {
                     System.arraycopy(values, 0, returnValues, 0, values.length);
                     virtualListener.sensorRef = sensors.get(Sensor.TYPE_GYROSCOPE);
                 }
-            } else if (virtualListener.getSensor().getType() == Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR || virtualListener.getSensor().getType() == Sensor.TYPE_ROTATION_VECTOR) {
+            } else if ((Build.VERSION.SDK_INT >= 19 && virtualListener.getSensor().getType() == Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) || virtualListener.getSensor().getType() == Sensor.TYPE_ROTATION_VECTOR) {
                 float[] values = new float[5];
                 float[] rotationMatrix = new float[9];
                 SensorManager.getRotationMatrix(rotationMatrix, null, accelerometerValues, magneticValues);
@@ -71,7 +72,7 @@ public class SensorChangeHook {
                 System.arraycopy(values, 0, returnValues, 0, values.length);
                 if (virtualListener.getSensor().getType() == Sensor.TYPE_ROTATION_VECTOR)
                     virtualListener.sensorRef = sensors.get(Sensor.TYPE_ROTATION_VECTOR);
-                else
+                else if (Build.VERSION.SDK_INT >= 19)
                     virtualListener.sensorRef = sensors.get(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR);
             } else if (virtualListener.getSensor().getType() == Sensor.TYPE_GRAVITY) {
                 float[] values = new float[3];

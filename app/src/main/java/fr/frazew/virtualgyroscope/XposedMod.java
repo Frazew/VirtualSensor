@@ -24,11 +24,11 @@ public class XposedMod implements IXposedHookLoadPackage {
     public static boolean FIRST_LAUNCH_SINCE_BOOT = true;
 
     public static final SparseArray<SensorModel> sensorsToEmulate = new SparseArray<SensorModel>() {{
-        put(Sensor.TYPE_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_ROTATION_VECTOR, "VirtualSensor RotationVector", -1, 0.01F, -1, -1, Sensor.STRING_TYPE_ROTATION_VECTOR, "none"));
-        put(Sensor.TYPE_GYROSCOPE, new SensorModel(Sensor.TYPE_GYROSCOPE, "VirtualSensor Gyroscope", -1, 0.01F, -1, (float)Math.PI, Sensor.STRING_TYPE_GYROSCOPE, "android.hardware.sensor.gyroscope"));
-        put(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, "VirtualSensor GeomagneticRotationVector", -1, 0.01F, -1, -1, Sensor.STRING_TYPE_GEOMAGNETIC_ROTATION_VECTOR, "none"));
-        put(Sensor.TYPE_GRAVITY, new SensorModel(Sensor.TYPE_GRAVITY, "VirtualSensor Gravity", -1, 0.01F, -1, -1, Sensor.STRING_TYPE_GRAVITY, "none"));
-        put(Sensor.TYPE_LINEAR_ACCELERATION, new SensorModel(Sensor.TYPE_LINEAR_ACCELERATION, "VirtualSensor LinearAcceleration", 4242, 0.01F, -1, -1, Sensor.STRING_TYPE_LINEAR_ACCELERATION, "none")); // Had to use another handle as it broke the magnetic sensor's readings (?!)
+        put(Sensor.TYPE_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_ROTATION_VECTOR, "VirtualSensor RotationVector", -1, 0.01F, -1, -1, "none"));
+        put(Sensor.TYPE_GYROSCOPE, new SensorModel(Sensor.TYPE_GYROSCOPE, "VirtualSensor Gyroscope", -1, 0.01F, -1, (float)Math.PI, "android.hardware.sensor.gyroscope"));
+        if (Build.VERSION.SDK_INT >= 19) put(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, "VirtualSensor GeomagneticRotationVector", -1, 0.01F, -1, -1, "none"));
+        put(Sensor.TYPE_GRAVITY, new SensorModel(Sensor.TYPE_GRAVITY, "VirtualSensor Gravity", -1, 0.01F, -1, -1, "none"));
+        put(Sensor.TYPE_LINEAR_ACCELERATION, new SensorModel(Sensor.TYPE_LINEAR_ACCELERATION, "VirtualSensor LinearAcceleration", 4242, 0.01F, -1, -1, "none")); // Had to use another handle as it broke the magnetic sensor's readings (?!)
     }};
 
     @Override
