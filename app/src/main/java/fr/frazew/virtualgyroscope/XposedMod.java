@@ -21,6 +21,7 @@ import fr.frazew.virtualgyroscope.hooks.SensorChangeHook;
 import fr.frazew.virtualgyroscope.hooks.SystemSensorManagerHook;
 
 public class XposedMod implements IXposedHookLoadPackage {
+    public static boolean FIRST_LAUNCH_SINCE_BOOT = true;
 
     public static final SparseArray<SensorModel> sensorsToEmulate = new SparseArray<SensorModel>() {{
         put(Sensor.TYPE_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_ROTATION_VECTOR, "VirtualSensor RotationVector", -1, 0.01F, -1, -1, Sensor.STRING_TYPE_ROTATION_VECTOR, "none"));
@@ -33,6 +34,11 @@ public class XposedMod implements IXposedHookLoadPackage {
     @Override
     public void handleLoadPackage(final LoadPackageParam lpparam) throws Throwable {
         if(lpparam.packageName.equals("android")) {
+            if (FIRST_LAUNCH_SINCE_BOOT) {
+                FIRST_LAUNCH_SINCE_BOOT = false;
+                XposedBridge.log("VirtualSensor: Using version " + BuildConfig.VERSION_NAME);
+            }
+
             hookPackageFeatures(lpparam);
         }
         hookSensorValues(lpparam);
