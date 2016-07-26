@@ -38,6 +38,8 @@ public class SystemSensorManagerHook {
         XposedHelpers.findField(Sensor.class, "mResolution").setAccessible(true);
         XposedHelpers.findField(Sensor.class, "mMinDelay").setAccessible(true);
         XposedHelpers.findField(Sensor.class, "mMaxRange").setAccessible(true);
+        XposedHelpers.findField(Sensor.class, "mStringType").setAccessible(true);
+        XposedHelpers.findField(Sensor.class, "mRequiredPermission").setAccessible(true);
 
         for (int i = 0; i < XposedMod.sensorsToEmulate.size(); i++) {
             SensorModel model = XposedMod.sensorsToEmulate.valueAt(i);
@@ -52,6 +54,10 @@ public class SystemSensorManagerHook {
                 XposedHelpers.setObjectField(s, "mResolution", model.resolution == -1 ? 0.01F : model.resolution); // This 0.01F is a placeholder, it doesn't seem to change anything but I keep it
                 if (model.maxRange != -1)
                     XposedHelpers.setObjectField(s, "mMaxRange", model.maxRange);
+                XposedHelpers.setObjectField(s, "mStringType", model.stringType);
+                if (!model.permission.equals("none")) {
+                    XposedHelpers.setObjectField(s, "mRequiredPermission", model.permission);
+                }
                 fullSensorList.add(s);
                 handleToSensor.append(model.handle, s);
             }

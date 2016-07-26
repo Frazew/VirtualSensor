@@ -65,7 +65,10 @@ public class SensorChangeHook {
                 values[3] = quaternion[0];
                 values[4] = -1;
 
-                System.arraycopy(values, 0, returnValues, 0, returnValues.length);
+                //Resize returnValues to 5
+                returnValues = new float[5];
+
+                System.arraycopy(values, 0, returnValues, 0, values.length);
                 if (virtualListener.getSensor().getType() == Sensor.TYPE_ROTATION_VECTOR)
                     virtualListener.sensorRef = sensors.get(Sensor.TYPE_ROTATION_VECTOR);
                 else
@@ -146,7 +149,7 @@ public class SensorChangeHook {
         @Override
         protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
             super.beforeHookedMethod(param);
-            SparseArray<Sensor> sensors = (SparseArray<Sensor>) XposedHelpers.getStaticObjectField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "mHandleToSensor");
+            SparseArray<Sensor> sensors = (SparseArray<Sensor>) XposedHelpers.getStaticObjectField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "sHandleToSensor");
 
             Object listener = XposedHelpers.getObjectField(param.thisObject, "mSensorEventListener");
             if (listener instanceof VirtualSensorListener) { // This is our custom listener type, we can start working on the values
@@ -173,13 +176,21 @@ public class SensorChangeHook {
                 float lastMagneticValuesYSum = this.oneSecondIntervalMagneticValues[0][1]+this.oneSecondIntervalMagneticValues[1][1]+this.oneSecondIntervalMagneticValues[2][1]+this.oneSecondIntervalMagneticValues[3][1]+this.oneSecondIntervalMagneticValues[4][1]+this.oneSecondIntervalMagneticValues[5][1]+this.oneSecondIntervalMagneticValues[6][1]+this.oneSecondIntervalMagneticValues[7][1]+this.oneSecondIntervalMagneticValues[8][1]+this.oneSecondIntervalMagneticValues[9][1];
                 float lastMagneticValuesZSum = this.oneSecondIntervalMagneticValues[0][1]+this.oneSecondIntervalMagneticValues[1][2]+this.oneSecondIntervalMagneticValues[2][2]+this.oneSecondIntervalMagneticValues[3][2]+this.oneSecondIntervalMagneticValues[4][2]+this.oneSecondIntervalMagneticValues[5][2]+this.oneSecondIntervalMagneticValues[6][2]+this.oneSecondIntervalMagneticValues[7][2]+this.oneSecondIntervalMagneticValues[8][2]+this.oneSecondIntervalMagneticValues[9][2];
 
-                if ((Math.abs(lastMagneticValuesXSum/10) == 0.0F || Math.abs(lastMagneticValuesYSum/10) == 0.0F || Math.abs(lastMagneticValuesZSum/10) == 0.0F) && Math.abs(lastMessage - ((long[]) param.args[2])[0]) * NS2S >= 10) {
+                if ((Math.abs(lastMagneticValuesXSum/10) == 0.0F || Math.abs(lastMagneticValuesYSum/10) == 0.0F || Math.abs(lastMagneticValuesZSum/10) == 0.0F) && Math.abs(lastMessage - ((long[]) param.args[2])[0]) * NS2S >= 10 && lastMessage != 0) {
                     XposedBridge.log("VirtualSensor: Magnetic values are likely to be wrong, if this message seems to appear often, it is likely that there is a problem");
                     this.lastMessage = ((long[]) param.args[2])[0];
                 }
 
                 List<Object> list = changeSensorValues(s, this.accelerometerValues, this.magneticValues, listener, this.prevRotationMatrix, ((long[]) param.args[2])[0], this.prevTimestamp, this.prevValues, this.lastFilterValues, sensors);
-                System.arraycopy((float[])list.get(0), 0, (float[])param.args[1], 0, ((float[])list.get(0)).length);
+
+                // Just making sure nothing goes wrong with the values returned by the rotation vector for example
+                if (((float[])param.args[1]).length == 3) {
+                    System.arraycopy((float[])list.get(0), 0, (float[])param.args[1], 0, ((float[])param.args[1]).length);
+                }
+                else {
+                    System.arraycopy((float[])list.get(0), 0, (float[])param.args[1], 0, ((float[])list.get(0)).length);
+                }
+
                 this.prevTimestamp = (long)list.get(1);
                 this.prevRotationMatrix = (float[])list.get(2);
                 this.prevValues = (float[])list.get(3);
@@ -222,6 +233,88 @@ public class SensorChangeHook {
             if (listener instanceof VirtualSensorListener) { // This is our custom listener type, we can start working on the values
                 int handle = (int) param.args[0];
                 Object mgr = XposedHelpers.getObjectField(param.thisObject, "mManager");
+                SparseArray<Sensor> sensors = (SparseArray<Sensor>) XposedHelpers.getStaticObjectField(mgr.getClass(), "sHandleToSensor");
+                Sensor s = sensors.get(handle);
+
+                //All calculations need data from these two sensors, we can safely get their value every time
+                if (s.getType() == Sensor.TYPE_ACCELEROMETER) {
+                    this.accelerometerValues = ((float[]) (param.args[1])).clone();
+                }
+                if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+                    this.magneticValues = ((float[]) (param.args[1])).clone();
+                    if (Math.abs(lastMagneticValuesIntervalRead - (long) param.args[3]) * NS2S >= 1) {
+                        this.oneSecondIntervalMagneticValues[this.magneticValuesIntervalCount] = this.magneticValues;
+                        this.lastMagneticValuesIntervalRead = (long) param.args[3];
+                        this.magneticValuesIntervalCount++;
+                        if (this.magneticValuesIntervalCount > 9) this.magneticValuesIntervalCount = 0;
+                    }
+                }
+
+                /*
+                    Check that the readings from the magnetic field are not too wrong. If they have been 0 or close to 0 for the last 10 seconds, we can safely assume there's a problem
+                 */
+                float lastMagneticValuesXSum = this.oneSecondIntervalMagneticValues[0][0]+this.oneSecondIntervalMagneticValues[1][0]+this.oneSecondIntervalMagneticValues[2][0]+this.oneSecondIntervalMagneticValues[3][0]+this.oneSecondIntervalMagneticValues[4][0]+this.oneSecondIntervalMagneticValues[5][0]+this.oneSecondIntervalMagneticValues[6][0]+this.oneSecondIntervalMagneticValues[7][0]+this.oneSecondIntervalMagneticValues[8][0]+this.oneSecondIntervalMagneticValues[9][0];
+                float lastMagneticValuesYSum = this.oneSecondIntervalMagneticValues[0][1]+this.oneSecondIntervalMagneticValues[1][1]+this.oneSecondIntervalMagneticValues[2][1]+this.oneSecondIntervalMagneticValues[3][1]+this.oneSecondIntervalMagneticValues[4][1]+this.oneSecondIntervalMagneticValues[5][1]+this.oneSecondIntervalMagneticValues[6][1]+this.oneSecondIntervalMagneticValues[7][1]+this.oneSecondIntervalMagneticValues[8][1]+this.oneSecondIntervalMagneticValues[9][1];
+                float lastMagneticValuesZSum = this.oneSecondIntervalMagneticValues[0][1]+this.oneSecondIntervalMagneticValues[1][2]+this.oneSecondIntervalMagneticValues[2][2]+this.oneSecondIntervalMagneticValues[3][2]+this.oneSecondIntervalMagneticValues[4][2]+this.oneSecondIntervalMagneticValues[5][2]+this.oneSecondIntervalMagneticValues[6][2]+this.oneSecondIntervalMagneticValues[7][2]+this.oneSecondIntervalMagneticValues[8][2]+this.oneSecondIntervalMagneticValues[9][2];
+
+                if ((Math.abs(lastMagneticValuesXSum/10) == 0.0F || Math.abs(lastMagneticValuesYSum/10) == 0.01F || Math.abs(lastMagneticValuesZSum/10) == 0.01F) && Math.abs(lastMessage - (long) param.args[3]) * NS2S >= 10 && lastMessage != 0) {
+                    XposedBridge.log("VirtualSensor: Magnetic values are likely to be wrong, if this message seems to appear often, it is likely that there is a problem");
+                    this.lastMessage = (long) param.args[3];
+                }
+
+                List<Object> list = changeSensorValues(s, this.accelerometerValues, this.magneticValues, listener, this.prevRotationMatrix, (long) param.args[3], this.prevTimestamp, this.prevValues, this.lastFilterValues, sensors);
+
+                // Just making sure nothing goes wrong with the values returned by the rotation vector for example
+                if (((float[])param.args[1]).length == 3) {
+                    System.arraycopy((float[])list.get(0), 0, (float[])param.args[1], 0, ((float[])param.args[1]).length);
+                }
+                else {
+                    System.arraycopy((float[])list.get(0), 0, (float[])param.args[1], 0, ((float[])list.get(0)).length);
+                }
+
+                this.prevTimestamp = (long)list.get(1);
+                this.prevRotationMatrix = (float[])list.get(2);
+                this.prevValues = (float[])list.get(3);
+                this.lastFilterValues = (float[][])list.get(4);
+            }
+        }
+    }
+
+
+    @SuppressWarnings("unchecked")
+    public static class API23Plus extends XC_MethodHook {
+        // Noise reduction
+        float lastFilterValues[][] = new float[3][10];
+        float prevValues[] = new float[3];
+
+        //Sensor values
+        float[] magneticValues = new float[3];
+        float[] accelerometerValues = new float[3];
+
+        //Keeping track of the previous rotation matrix and timestamp
+        float[] prevRotationMatrix = new float[9];
+        long prevTimestamp = 0;
+
+        // Stores the magnetic values read each second for the last 10 seconds (approximately, it depends on the delay of the sensors currently used)
+        float[][] oneSecondIntervalMagneticValues = new float[10][3];
+        long lastMagneticValuesIntervalRead = 0;
+        long lastMessage = 0;
+        int magneticValuesIntervalCount = 0;
+
+        private XC_LoadPackage.LoadPackageParam lpparam;
+
+        public API23Plus(XC_LoadPackage.LoadPackageParam lpparam) {
+            this.lpparam = lpparam;
+        }
+
+        @Override
+        protected void beforeHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
+            super.beforeHookedMethod(param);
+
+            Object listener = XposedHelpers.getObjectField(param.thisObject, "mListener");
+            if (listener instanceof VirtualSensorListener) { // This is our custom listener type, we can start working on the values
+                int handle = (int) param.args[0];
+                Object mgr = XposedHelpers.getObjectField(param.thisObject, "mManager");
                 SparseArray<Sensor> sensors = (SparseArray<Sensor>) XposedHelpers.getObjectField(mgr, "mHandleToSensor");
                 Sensor s = sensors.get(handle);
 
@@ -246,13 +339,21 @@ public class SensorChangeHook {
                 float lastMagneticValuesYSum = this.oneSecondIntervalMagneticValues[0][1]+this.oneSecondIntervalMagneticValues[1][1]+this.oneSecondIntervalMagneticValues[2][1]+this.oneSecondIntervalMagneticValues[3][1]+this.oneSecondIntervalMagneticValues[4][1]+this.oneSecondIntervalMagneticValues[5][1]+this.oneSecondIntervalMagneticValues[6][1]+this.oneSecondIntervalMagneticValues[7][1]+this.oneSecondIntervalMagneticValues[8][1]+this.oneSecondIntervalMagneticValues[9][1];
                 float lastMagneticValuesZSum = this.oneSecondIntervalMagneticValues[0][1]+this.oneSecondIntervalMagneticValues[1][2]+this.oneSecondIntervalMagneticValues[2][2]+this.oneSecondIntervalMagneticValues[3][2]+this.oneSecondIntervalMagneticValues[4][2]+this.oneSecondIntervalMagneticValues[5][2]+this.oneSecondIntervalMagneticValues[6][2]+this.oneSecondIntervalMagneticValues[7][2]+this.oneSecondIntervalMagneticValues[8][2]+this.oneSecondIntervalMagneticValues[9][2];
 
-                if ((Math.abs(lastMagneticValuesXSum/10) == 0.0F || Math.abs(lastMagneticValuesYSum/10) == 0.01F || Math.abs(lastMagneticValuesZSum/10) == 0.01F) && Math.abs(lastMessage - (long) param.args[3]) * NS2S >= 10) {
+                if ((Math.abs(lastMagneticValuesXSum/10) == 0.0F || Math.abs(lastMagneticValuesYSum/10) == 0.01F || Math.abs(lastMagneticValuesZSum/10) == 0.01F) && Math.abs(lastMessage - (long) param.args[3]) * NS2S >= 10 && lastMessage != 0) {
                     XposedBridge.log("VirtualSensor: Magnetic values are likely to be wrong, if this message seems to appear often, it is likely that there is a problem");
                     this.lastMessage = (long) param.args[3];
                 }
 
                 List<Object> list = changeSensorValues(s, this.accelerometerValues, this.magneticValues, listener, this.prevRotationMatrix, (long) param.args[3], this.prevTimestamp, this.prevValues, this.lastFilterValues, sensors);
-                System.arraycopy((float[])list.get(0), 0, (float[])param.args[1], 0, ((float[])list.get(0)).length);
+
+                // Just making sure nothing goes wrong with the values returned by the rotation vector for example
+                if (((float[])param.args[1]).length == 3) {
+                    System.arraycopy((float[])list.get(0), 0, (float[])param.args[1], 0, ((float[])param.args[1]).length);
+                }
+                else {
+                    System.arraycopy((float[])list.get(0), 0, (float[])param.args[1], 0, ((float[])list.get(0)).length);
+                }
+
                 this.prevTimestamp = (long)list.get(1);
                 this.prevRotationMatrix = (float[])list.get(2);
                 this.prevValues = (float[])list.get(3);
@@ -261,7 +362,6 @@ public class SensorChangeHook {
         }
     }
 
-
     /*
         Helper functions
      */
@@ -269,17 +369,38 @@ public class SensorChangeHook {
     private static List<Object> getGyroscopeValues(float[] currentAccelerometer, float[] currentMagnetic, float[] prevRotationMatrix, float timeDifference) {
         float[] angularRates = new float[] {0.0F, 0.0F, 0.0F};
 
-        float[] currentRotationMatrix = new float[9];
-        SensorManager.getRotationMatrix(currentRotationMatrix, null, currentAccelerometer, currentMagnetic);
+        float[] rotationMatrix = new float[9];
 
-        SensorManager.getAngleChange(angularRates, currentRotationMatrix, prevRotationMatrix);
+        float[] gravity = new float[]{0F, 0F, 9.81F};
+        SensorManager.getRotationMatrix(rotationMatrix, null, currentAccelerometer, currentMagnetic);
+        float[] gravityRot = new float[3];
+        gravityRot[0] = gravity[0] * rotationMatrix[0] + gravity[1] * rotationMatrix[3] + gravity[2] * rotationMatrix[6];
+        gravityRot[1] = gravity[0] * rotationMatrix[1] + gravity[1] * rotationMatrix[4] + gravity[2] * rotationMatrix[7];
+        gravityRot[2] = gravity[0] * rotationMatrix[2] + gravity[1] * rotationMatrix[5] + gravity[2] * rotationMatrix[8];
+
+        SensorManager.getRotationMatrix(rotationMatrix, null, gravityRot, currentMagnetic);
+
+        // Work in progress, trying to avoid euler angles calculations and rotation matrices to use quaternions instead. For now, it's only failing
+
+        /*float[] rotationQuaternion = rotationMatrixToQuaternion(rotationMatrix);
+        float[] prevRotationQuaternion = rotationMatrixToQuaternion(prevRotationMatrix);
+        float[] quaternion = subtractQuaternionbyQuaternion(prevRotationQuaternion, rotationQuaternion);
+        quaternion = normalizeQuaternion(quaternion);
+
+        if (2*Math.abs(quaternion[1]*quaternion[3] + quaternion[0]*quaternion[3]) == 1) XposedBridge.log("VirtualSensor: gimbal-lock situation");
+
+        angularRates[2] = -(float)Math.atan2(2*(quaternion[0]*quaternion[1] + quaternion[2]*quaternion[3]), 1 - 2*(quaternion[1]*quaternion[1] + quaternion[2]*quaternion[2]));
+        angularRates[1] = (float)Math.asin(2 * (quaternion[0] * quaternion[2] - quaternion[3] * quaternion[1]));
+        angularRates[0] = (float)Math.atan2(2*(quaternion[0]*quaternion[3] + quaternion[1]*quaternion[2]), 1 - 2*(quaternion[2]*quaternion[2] + quaternion[3]*quaternion[3]));*/
+
+        SensorManager.getAngleChange(angularRates, rotationMatrix, prevRotationMatrix);
         angularRates[0] = -(angularRates[1]*2) / timeDifference;
         angularRates[1] = (angularRates[2]) / timeDifference;
-        angularRates[2] = ((angularRates[0]/2) / timeDifference)*0.0F; //Right now this returns weird values, need to look into it @TODO
+        angularRates[2] = ((angularRates[0]) / timeDifference) * 0.0F; //Right now this returns weird values, need to look into it @TODO
 
         List<Object> returnList = new ArrayList<>();
         returnList.add(angularRates);
-        returnList.add(currentRotationMatrix);
+        returnList.add(rotationMatrix);
         return returnList;
     }
 
@@ -326,6 +447,43 @@ public class SensorChangeHook {
 
     private static float lowPass(float alpha, float value, float prev) {
         return prev + alpha * (value - prev);
+    }
+
+    public static float[] normalizeQuaternion(float[] quaternion) {
+        float[] returnQuat = new float[4];
+        float sqrt = (float)Math.sqrt(quaternion[0]*quaternion[0] + quaternion[1]*quaternion[1] + quaternion[2]*quaternion[2] + quaternion[3]*quaternion[3]);
+
+        returnQuat[0] = quaternion[0] / sqrt;
+        returnQuat[1] = quaternion[1] / sqrt;
+        returnQuat[2] = quaternion[2] / sqrt;
+        returnQuat[3] = quaternion[3] / sqrt;
+
+        return returnQuat;
+    }
+
+    public static float[] normalizeVector(float[] vector) {
+        float[] newVec = new float[3];
+        float sqrt = (float)Math.sqrt(vector[0]*vector[0] + vector[1]*vector[1] + vector[2]*vector[2]);
+
+        newVec[0] = vector[0] / sqrt;
+        newVec[1] = vector[1] / sqrt;
+        newVec[2] = vector[2] / sqrt;
+
+        return newVec;
+    }
+
+    /*
+        Subtracts a quaternion by another, this a very easy operation so nothing interesting
+     */
+    public static float[] subtractQuaternionbyQuaternion(float[] quat1, float[] quat2) {
+        float[] quaternion = new float[4];
+
+        quaternion[0] = quat1[0] - quat2[0];
+        quaternion[1] = quat1[1] - quat2[1];
+        quaternion[2] = quat1[2] - quat2[2];
+        quaternion[3] = quat1[3] - quat2[3];
+
+        return quaternion;
     }
 
     /*
@@ -402,3 +560,4 @@ public class SensorChangeHook {
         return new float[] {qw, qx, qy, qz};
     }
 }
+

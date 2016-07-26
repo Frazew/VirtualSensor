@@ -5,15 +5,12 @@ import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
-import android.hardware.SensorManager;
 import android.os.Build;
 import android.util.SparseArray;
 
 import de.robv.android.xposed.XposedBridge;
 
-import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -26,11 +23,11 @@ import fr.frazew.virtualgyroscope.hooks.SystemSensorManagerHook;
 public class XposedMod implements IXposedHookLoadPackage {
 
     public static final SparseArray<SensorModel> sensorsToEmulate = new SparseArray<SensorModel>() {{
-        put(Sensor.TYPE_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_ROTATION_VECTOR, "VirtualSensor RotationVector", -1, 0.01F, -1, -1));
-        put(Sensor.TYPE_GYROSCOPE, new SensorModel(Sensor.TYPE_GYROSCOPE, "VirtualSensor Gyroscope", -1, 0.01F, -1, (float)Math.PI));
-        put(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, "VirtualSensor GeomagneticRotationVector", -1, 0.01F, -1, -1));
-        put(Sensor.TYPE_GRAVITY, new SensorModel(Sensor.TYPE_GRAVITY, "VirtualSensor Gravity", -1, 0.01F, -1, -1));
-        put(Sensor.TYPE_LINEAR_ACCELERATION, new SensorModel(Sensor.TYPE_LINEAR_ACCELERATION, "VirtualSensor LinearAcceleration", 4242, 0.01F, -1, -1)); // Had to use another handle as it broke the magnetic sensor's readings (?!)
+        put(Sensor.TYPE_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_ROTATION_VECTOR, "VirtualSensor RotationVector", -1, 0.01F, -1, -1, Sensor.STRING_TYPE_ROTATION_VECTOR, "none"));
+        put(Sensor.TYPE_GYROSCOPE, new SensorModel(Sensor.TYPE_GYROSCOPE, "VirtualSensor Gyroscope", -1, 0.01F, -1, (float)Math.PI, Sensor.STRING_TYPE_GYROSCOPE, "android.hardware.sensor.gyroscope"));
+        put(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, "VirtualSensor GeomagneticRotationVector", -1, 0.01F, -1, -1, Sensor.STRING_TYPE_GEOMAGNETIC_ROTATION_VECTOR, "none"));
+        put(Sensor.TYPE_GRAVITY, new SensorModel(Sensor.TYPE_GRAVITY, "VirtualSensor Gravity", -1, 0.01F, -1, -1, Sensor.STRING_TYPE_GRAVITY, "none"));
+        put(Sensor.TYPE_LINEAR_ACCELERATION, new SensorModel(Sensor.TYPE_LINEAR_ACCELERATION, "VirtualSensor LinearAcceleration", 4242, 0.01F, -1, -1, Sensor.STRING_TYPE_LINEAR_ACCELERATION, "none")); // Had to use another handle as it broke the magnetic sensor's readings (?!)
     }};
 
     @Override
@@ -101,7 +98,7 @@ public class XposedMod implements IXposedHookLoadPackage {
             XposedBridge.hookAllMethods(pkgMgrSrv, "hasSystemFeature", new XC_MethodHook() {
                 @Override
                 protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    if (!(boolean)param.getResult() && (String)param.args[0] == PackageManager.FEATURE_SENSOR_GYROSCOPE) {
+                    if (!(boolean) param.getResult() && (String) param.args[0] == PackageManager.FEATURE_SENSOR_GYROSCOPE) {
                         Object mPackages = XposedHelpers.getObjectField(param.thisObject, "mPackages");
                         synchronized (mPackages) {
                             Map<String, FeatureInfo> mAvailableFeatures = (Map<String, FeatureInfo>) param.getResult();
@@ -121,7 +118,8 @@ public class XposedMod implements IXposedHookLoadPackage {
 
     private void hookSensorValues(final LoadPackageParam lpparam) {
         if (Build.VERSION.SDK_INT >= 18) {
-            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue", lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class, new SensorChangeHook.API18Plus(lpparam));
+            if (Build.VERSION.SDK_INT >= 23) XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue", lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class, new SensorChangeHook.API23Plus(lpparam));
+            else XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue", lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class, new SensorChangeHook.API18Plus(lpparam));
         } else {
             XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$ListenerDelegate", lpparam.classLoader, "onSensorChangedLocked", Sensor.class, float[].class, long[].class, int.class, new SensorChangeHook.API1617(lpparam));
         }
