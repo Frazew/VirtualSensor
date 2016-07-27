@@ -1,6 +1,7 @@
 package fr.frazew.virtualgyroscope.hooks;
 
 import android.hardware.Sensor;
+import android.os.Build;
 import android.util.SparseArray;
 
 import java.lang.reflect.InvocationTargetException;
@@ -9,6 +10,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import fr.frazew.virtualgyroscope.BuildConfig;
@@ -43,7 +45,7 @@ public class SystemSensorManagerHook {
 
         for (int i = 0; i < XposedMod.sensorsToEmulate.size(); i++) {
             SensorModel model = XposedMod.sensorsToEmulate.valueAt(i);
-            if (!model.alreadyThere) {
+            //if (!model.alreadyThere) {
                 Sensor s = (Sensor) XposedHelpers.findConstructorBestMatch(Sensor.class).newInstance();
                 XposedHelpers.setObjectField(s, "mType", XposedMod.sensorsToEmulate.keyAt(i));
                 XposedHelpers.setObjectField(s, "mName", model.name);
@@ -51,6 +53,7 @@ public class SystemSensorManagerHook {
                 XposedHelpers.setObjectField(s, "mVersion", BuildConfig.VERSION_CODE);
                 XposedHelpers.setObjectField(s, "mHandle", model.handle);
                 XposedHelpers.setObjectField(s, "mMinDelay", model.minDelay == -1 ? minDelayAccelerometer : model.minDelay);
+                if (Build.VERSION.SDK_INT >= 19) XposedHelpers.setObjectField(s, "mStringType", model.stringType);
                 XposedHelpers.setObjectField(s, "mResolution", model.resolution == -1 ? 0.01F : model.resolution); // This 0.01F is a placeholder, it doesn't seem to change anything but I keep it
                 if (model.maxRange != -1)
                     XposedHelpers.setObjectField(s, "mMaxRange", model.maxRange);
@@ -59,8 +62,8 @@ public class SystemSensorManagerHook {
                     XposedHelpers.setObjectField(s, "mRequiredPermission", model.permission);
 
                 fullSensorList.add(s);
-                handleToSensor.append(model.handle, s);
-            }
+                handleToSensor.put(model.handle, s);
+                XposedBridge.log("VirtualSensor: appended handle " + model.handle + " at index " + handleToSensor.indexOfKey(model.handle) + " for sensor " + handleToSensor.valueAt(handleToSensor.indexOfKey(model.handle)).getStringType());
         }
 
         List<Object> list = new ArrayList<>();
@@ -83,22 +86,20 @@ public class SystemSensorManagerHook {
             ArrayList sListeners = (ArrayList) XposedHelpers.getStaticObjectField(param.thisObject.getClass(), "sListeners");
 
             synchronized (sListeners) {
-                if (!XposedHelpers.getStaticBooleanField(param.thisObject.getClass(), "sSensorModuleInitialized")) {
-                    ArrayList<Sensor> sFullSensorsList = (ArrayList<Sensor>) XposedHelpers.getStaticObjectField(param.thisObject.getClass(), "sFullSensorsList");
-                    SparseArray<Sensor> sHandleToSensor = (SparseArray<Sensor>) XposedHelpers.getStaticObjectField(param.thisObject.getClass(), "sHandleToSensor");
+                ArrayList<Sensor> sFullSensorsList = (ArrayList<Sensor>) XposedHelpers.getStaticObjectField(param.thisObject.getClass(), "sFullSensorsList");
+                SparseArray<Sensor> sHandleToSensor = (SparseArray<Sensor>) XposedHelpers.getStaticObjectField(param.thisObject.getClass(), "sHandleToSensor");
 
-                    List<Object> sensors = fillSensorLists(sFullSensorsList, sHandleToSensor, lpparam);
+                List<Object> sensors = fillSensorLists(sFullSensorsList, sHandleToSensor, lpparam);
 
-                    XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "sFullSensorsList").setAccessible(true);
-                    XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "sHandleToSensor").setAccessible(true);
+                XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "sFullSensorsList").setAccessible(true);
+                XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "sHandleToSensor").setAccessible(true);
 
-                    XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sHandleToSensor", sensors.get(0));
-                    XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sFullSensorsList", sensors.get(1));
+                XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sHandleToSensor", sensors.get(0));
+                XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sFullSensorsList", sensors.get(1));
 
-                    Class sensorEventPoolClass = XposedHelpers.findClass("android.hardware.SensorManager$SensorEventPool", lpparam.classLoader);
-                    Object sPool = XposedHelpers.newInstance(sensorEventPoolClass, int.class, ((ArrayList<Sensor>)sensors.get(1)).size() * 2);
-                    XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sPool", sPool);
-                }
+                Class sensorEventPoolClass = XposedHelpers.findClass("android.hardware.SensorManager$SensorEventPool", lpparam.classLoader);
+                Object sPool = XposedHelpers.newInstance(sensorEventPoolClass, int.class, ((ArrayList<Sensor>)sensors.get(1)).size() * 2);
+                XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sPool", sPool);
             }
         }
     }
@@ -144,12 +145,16 @@ public class SystemSensorManagerHook {
         protected void afterHookedMethod(MethodHookParam param) throws Throwable {
             super.afterHookedMethod(param);
             ArrayList<Sensor> mFullSensorsList = (ArrayList<Sensor>) XposedHelpers.getObjectField(param.thisObject, "mFullSensorsList");
-            SparseArray<Sensor> mHandleToSensor = (SparseArray<Sensor>) XposedHelpers.getObjectField(param.thisObject, "mHandleToSensor");
+            SparseArray<Sensor> mHandleToSensor = ((SparseArray<Sensor>) XposedHelpers.getObjectField(param.thisObject, "mHandleToSensor")).clone();
 
             List<Object> sensors = fillSensorLists(mFullSensorsList, mHandleToSensor, lpparam);
 
             XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "mFullSensorsList").setAccessible(true);
             XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "mHandleToSensor").setAccessible(true);
+
+            for (int i = 0; i < ((SparseArray<Sensor>)sensors.get(1)).size(); i++) {
+                XposedBridge.log("VirtualSensor: Handle to sensor " + ((SparseArray<Sensor>)sensors.get(1)).indexOfKey(i) + " for sensor " + ((SparseArray<Sensor>)sensors.get(1)).valueAt(i).getStringType());
+            }
 
             XposedHelpers.setObjectField(param.thisObject, "mHandleToSensor", sensors.get(1));
             XposedHelpers.setObjectField(param.thisObject, "mFullSensorsList", sensors.get(0));

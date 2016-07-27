@@ -7,6 +7,7 @@ import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.os.Build;
 import android.util.SparseArray;
+import android.util.SparseIntArray;
 
 import de.robv.android.xposed.XposedBridge;
 
@@ -23,12 +24,20 @@ import fr.frazew.virtualgyroscope.hooks.SystemSensorManagerHook;
 public class XposedMod implements IXposedHookLoadPackage {
     public static boolean FIRST_LAUNCH_SINCE_BOOT = true;
 
+    public static final SparseIntArray sensorTypetoHandle = new SparseIntArray() {{
+        append(Sensor.TYPE_ROTATION_VECTOR, 4242);
+        append(Sensor.TYPE_GYROSCOPE, 4243);
+        if (Build.VERSION.SDK_INT >= 19) put(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, 4244);
+        append(Sensor.TYPE_GRAVITY, 4245);
+        append(Sensor.TYPE_LINEAR_ACCELERATION, 4246);
+    }};
+
     public static final SparseArray<SensorModel> sensorsToEmulate = new SparseArray<SensorModel>() {{
-        put(Sensor.TYPE_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_ROTATION_VECTOR, "VirtualSensor RotationVector", -1, 0.01F, -1, -1, "none"));
-        put(Sensor.TYPE_GYROSCOPE, new SensorModel(Sensor.TYPE_GYROSCOPE, "VirtualSensor Gyroscope", -1, 0.01F, -1, (float)Math.PI, "android.hardware.sensor.gyroscope"));
-        if (Build.VERSION.SDK_INT >= 19) put(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, "VirtualSensor GeomagneticRotationVector", -1, 0.01F, -1, -1, "none"));
-        put(Sensor.TYPE_GRAVITY, new SensorModel(Sensor.TYPE_GRAVITY, "VirtualSensor Gravity", -1, 0.01F, -1, -1, "none"));
-        put(Sensor.TYPE_LINEAR_ACCELERATION, new SensorModel(Sensor.TYPE_LINEAR_ACCELERATION, "VirtualSensor LinearAcceleration", 4242, 0.01F, -1, -1, "none")); // Had to use another handle as it broke the magnetic sensor's readings (?!)
+        append(Sensor.TYPE_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_ROTATION_VECTOR, "VirtualSensor RotationVector", sensorTypetoHandle.get(Sensor.TYPE_ROTATION_VECTOR), 0.01F, -1, -1, (Build.VERSION.SDK_INT >= 19) ? Sensor.STRING_TYPE_ROTATION_VECTOR : "", "none"));
+        append(Sensor.TYPE_GYROSCOPE, new SensorModel(Sensor.TYPE_GYROSCOPE, "VirtualSensor Gyroscope", sensorTypetoHandle.get(Sensor.TYPE_GYROSCOPE), 0.01F, -1, (float) Math.PI, (Build.VERSION.SDK_INT >= 19) ? Sensor.STRING_TYPE_GYROSCOPE : "", "android.hardware.sensor.gyroscope"));
+        //if (Build.VERSION.SDK_INT >= 19) append(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, "VirtualSensor GeomagneticRotationVector", sensorTypetoHandle.get(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR), 0.01F, -1, -1, (Build.VERSION.SDK_INT >= 19) ? Sensor.STRING_TYPE_GEOMAGNETIC_ROTATION_VECTOR : "", "none"));
+        append(Sensor.TYPE_GRAVITY, new SensorModel(Sensor.TYPE_GRAVITY, "VirtualSensor Gravity", sensorTypetoHandle.get(Sensor.TYPE_GRAVITY), 0.01F, -1, -1, (Build.VERSION.SDK_INT >= 19) ? Sensor.STRING_TYPE_GRAVITY : "", "none"));
+        append(Sensor.TYPE_LINEAR_ACCELERATION, new SensorModel(Sensor.TYPE_LINEAR_ACCELERATION, "VirtualSensor LinearAcceleration", sensorTypetoHandle.get(Sensor.TYPE_LINEAR_ACCELERATION), 0.01F, -1, -1, (Build.VERSION.SDK_INT >= 19) ? Sensor.STRING_TYPE_LINEAR_ACCELERATION : "", "none")); // Had to use another handle as it broke the magnetic sensor's readings (?!)
     }};
 
     @Override
@@ -176,6 +185,7 @@ public class XposedMod implements IXposedHookLoadPackage {
 
                     // We check that the listener isn't of type VirtualSensorListener. Although that should not happen, it would probably be nasty.
                     if (sensorsToEmulate.indexOfKey(((Sensor) param.args[1]).getType()) >= 0 && !(listener instanceof VirtualSensorListener)) {
+                        XposedBridge.log("VirtualSensor: listener hooked for type " + ((Sensor) param.args[1]).getType());
                         SensorEventListener specialListener = new VirtualSensorListener(listener, ((Sensor) param.args[1]));
                         XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
                                 specialListener,
