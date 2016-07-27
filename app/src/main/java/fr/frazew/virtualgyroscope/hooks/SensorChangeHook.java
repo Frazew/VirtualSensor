@@ -28,7 +28,7 @@ public class SensorChangeHook {
 
         // We only work when it's an accelerometer's reading. If we were to work on both events, the timeDifference for the gyro would often be 0 resulting in NaN or Infinity
         if (s.getType() == Sensor.TYPE_ACCELEROMETER) {
-            XposedBridge.log("VirtualSensor: values for " + virtualListener.getSensor().getStringType());
+
             if (virtualListener.getSensor().getType() == Sensor.TYPE_GYROSCOPE) {
                 float timeDifference = Math.abs((float) (timestamp - prevTimestamp) * NS2S);
                 List<Object> valuesList = getGyroscopeValues(accelerometerValues, magneticValues, prevRotationMatrix, timeDifference);
@@ -53,7 +53,6 @@ public class SensorChangeHook {
                     lastFilterValues = (float[][]) filter.get(2);
 
                     System.arraycopy(values, 0, returnValues, 0, values.length);
-                    XposedBridge.log("VirtualSensor: sensor gyro is " + sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_GYROSCOPE))));
                     virtualListener.sensorRef = sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_GYROSCOPE)));
                 }
             } else if ((Build.VERSION.SDK_INT >= 19 && virtualListener.getSensor().getType() == Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) || virtualListener.getSensor().getType() == Sensor.TYPE_ROTATION_VECTOR) {
