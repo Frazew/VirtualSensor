@@ -56,7 +56,7 @@ public class SensorChangeHook {
                     virtualListener.sensorRef = sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_GYROSCOPE)));
                 }
             } else if ((Build.VERSION.SDK_INT >= 19 && virtualListener.getSensor().getType() == Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) || virtualListener.getSensor().getType() == Sensor.TYPE_ROTATION_VECTOR) {
-                float[] values = new float[5];
+                float[] values = new float[3];
                 float[] rotationMatrix = new float[9];
                 SensorManager.getRotationMatrix(rotationMatrix, null, accelerometerValues, magneticValues);
                 float[] quaternion = rotationMatrixToQuaternion(rotationMatrix);
@@ -64,11 +64,6 @@ public class SensorChangeHook {
                 values[0] = quaternion[1];
                 values[1] = quaternion[2];
                 values[2] = quaternion[3];
-                values[3] = quaternion[0];
-                values[4] = -1;
-
-                //Resize returnValues to 5
-                returnValues = new float[5];
 
                 System.arraycopy(values, 0, returnValues, 0, values.length);
                 if (virtualListener.getSensor().getType() == Sensor.TYPE_ROTATION_VECTOR)
@@ -372,7 +367,6 @@ public class SensorChangeHook {
         float[] angularRates = new float[] {0.0F, 0.0F, 0.0F};
 
         float[] rotationMatrix = new float[9];
-
         float[] gravity = new float[]{0F, 0F, 9.81F};
         SensorManager.getRotationMatrix(rotationMatrix, null, currentAccelerometer, currentMagnetic);
         float[] gravityRot = new float[3];
@@ -382,23 +376,11 @@ public class SensorChangeHook {
 
         SensorManager.getRotationMatrix(rotationMatrix, null, gravityRot, currentMagnetic);
 
-        // Work in progress, trying to avoid euler angles calculations and rotation matrices to use quaternions instead. For now, it's only failing
-
-        /*float[] rotationQuaternion = rotationMatrixToQuaternion(rotationMatrix);
-        float[] prevRotationQuaternion = rotationMatrixToQuaternion(prevRotationMatrix);
-        float[] quaternion = subtractQuaternionbyQuaternion(prevRotationQuaternion, rotationQuaternion);
-        quaternion = normalizeQuaternion(quaternion);
-
-        if (2*Math.abs(quaternion[1]*quaternion[3] + quaternion[0]*quaternion[3]) == 1) XposedBridge.log("VirtualSensor: gimbal-lock situation");
-
-        angularRates[2] = -(float)Math.atan2(2*(quaternion[0]*quaternion[1] + quaternion[2]*quaternion[3]), 1 - 2*(quaternion[1]*quaternion[1] + quaternion[2]*quaternion[2]));
-        angularRates[1] = (float)Math.asin(2 * (quaternion[0] * quaternion[2] - quaternion[3] * quaternion[1]));
-        angularRates[0] = (float)Math.atan2(2*(quaternion[0]*quaternion[3] + quaternion[1]*quaternion[2]), 1 - 2*(quaternion[2]*quaternion[2] + quaternion[3]*quaternion[3]));*/
-
-        SensorManager.getAngleChange(angularRates, rotationMatrix, prevRotationMatrix);
-        angularRates[0] = -(angularRates[1]*2) / timeDifference;
-        angularRates[1] = (angularRates[2]) / timeDifference;
-        angularRates[2] = ((angularRates[0]) / timeDifference) * 0.0F; //Right now this returns weird values, need to look into it @TODO
+        float[] angleChange = new float[3];
+        SensorManager.getAngleChange(angleChange, rotationMatrix, prevRotationMatrix);
+        angularRates[0] = -(angleChange[1]) / timeDifference;
+        angularRates[1] = (angleChange[2]) / timeDifference;
+        angularRates[2] = (angleChange[0]) / timeDifference;
 
         List<Object> returnList = new ArrayList<>();
         returnList.add(angularRates);
@@ -511,6 +493,33 @@ public class SensorChangeHook {
         float newQuaternionk = a*D + b*C - c*B + d*A;
 
         return new float[] {newQuaternionReal, newQuaternioni, newQuaternionj, newQuaternionk};
+    }
+
+    private static float[] quaternionToRotationMatrix(float[] quaternion) {
+        float[] rotationMatrix = new float[9];
+
+        float w = quaternion[0];
+        float x = quaternion[1];
+        float y = quaternion[2];
+        float z = quaternion[3];
+
+        float n = w * w + x * x + y * y + z * z;
+        float s = n == 0 ? 0 : 2/n;
+        float wx = s * w * x, wy = s * w * y, wz = s * w * z;
+        float xx = s * x * x, xy = s * x * y, xz = s * x * z;
+        float yy = s * y * y, yz = s * y * z, zz = s * z * z;
+
+        rotationMatrix[0] = 1 - (yy + zz);
+        rotationMatrix[1] = xy - wz;
+        rotationMatrix[2] = xz + wy;
+        rotationMatrix[3] = xy + wz;
+        rotationMatrix[4] = 1 - (xx + zz);
+        rotationMatrix[5] = yz - wx;
+        rotationMatrix[6] = xz - wy;
+        rotationMatrix[7] = yz + wx;
+        rotationMatrix[8] = 1 - (xx + yy);
+
+        return rotationMatrix;
     }
 
     /*
