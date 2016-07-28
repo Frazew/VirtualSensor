@@ -396,7 +396,7 @@ public class SensorChangeHook {
         float[][] newLastFilterValues = new float[3][10];
         for (int i = 0; i < 3; i++) {
             // Apply lowpass on the value
-            float alpha = 0.1F;
+            float alpha = 0.5F;
             float newValue = lowPass(alpha, values[i], prevValues[i]);
             //float newValue = values[i];
 
@@ -406,11 +406,11 @@ public class SensorChangeHook {
             }
             newLastFilterValues[i][9] = newValue;
 
-            float sum = 0F;
+            /*float sum = 0F;
             for (int j = 0; j < 10; j++) {
                 sum += lastFilterValues[i][j];
             }
-            newValue = sum/10;
+            newValue = sum/10;*/
 
             //The gyroscope is moving even after lowpass
             if (newValue != 0.0F) {
