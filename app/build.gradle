@@ -8,8 +8,8 @@ android {
         applicationId "fr.frazew.virtualgyroscope"
         minSdkVersion 16
         targetSdkVersion 23
-        versionCode 131
-        versionName "1.31"
+        versionCode 132
+        versionName "1.32"
     }
     buildTypes {
         release {
