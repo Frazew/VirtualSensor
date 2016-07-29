@@ -27,7 +27,9 @@ public class SystemSensorManagerHook {
             Sensor sensor = iterator.next();
             if (XposedMod.sensorsToEmulate.indexOfKey(sensor.getType()) >= 0) {
                 XposedMod.sensorsToEmulate.get(sensor.getType()).alreadyThere = true;
+                if (!sensor.getVendor().equals("Frazew")) XposedMod.sensorsToEmulate.get(sensor.getType()).isAlreadyNative = true;
             }
+
             if (sensor.getType() == Sensor.TYPE_ACCELEROMETER) minDelayAccelerometer = sensor.getMinDelay();
         }
 

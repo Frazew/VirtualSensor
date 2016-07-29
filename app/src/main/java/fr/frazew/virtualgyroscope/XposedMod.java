@@ -11,7 +11,9 @@ import android.util.SparseIntArray;
 
 import de.robv.android.xposed.XposedBridge;
 
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
@@ -157,7 +159,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                     SensorEventListener listener = (SensorEventListener) param.args[0];
 
                     // We check that the listener isn't of type VirtualSensorListener. Although that should not happen, it would probably be nasty.
-                    if (sensorsToEmulate.indexOfKey(((Sensor) param.args[1]).getType()) >= 0 && !(listener instanceof VirtualSensorListener)) {
+                    if (sensorsToEmulate.indexOfKey(((Sensor) param.args[1]).getType()) >= 0 && !(listener instanceof VirtualSensorListener) && !sensorsToEmulate.get(((Sensor) param.args[1]).getType()).isAlreadyNative) {
                         SensorEventListener specialListener = new VirtualSensorListener(listener, ((Sensor) param.args[1]));
                         XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
                                 specialListener,
@@ -184,7 +186,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                     SensorEventListener listener = (SensorEventListener) param.args[0];
 
                     // We check that the listener isn't of type VirtualSensorListener. Although that should not happen, it would probably be nasty.
-                    if (sensorsToEmulate.indexOfKey(((Sensor) param.args[1]).getType()) >= 0 && !(listener instanceof VirtualSensorListener)) {
+                    if (sensorsToEmulate.indexOfKey(((Sensor) param.args[1]).getType()) >= 0 && !(listener instanceof VirtualSensorListener) && !sensorsToEmulate.get(((Sensor) param.args[1]).getType()).isAlreadyNative) {
                         SensorEventListener specialListener = new VirtualSensorListener(listener, ((Sensor) param.args[1]));
                         XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
                                 specialListener,
@@ -213,15 +215,20 @@ public class XposedMod implements IXposedHookLoadPackage {
         XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager", lpparam.classLoader, "unregisterListenerImpl", android.hardware.SensorEventListener.class, android.hardware.Sensor.class, new XC_MethodHook() {
             @Override
             protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                List<SensorEventListener> listenersToRemove = new ArrayList<>();
                 for (Map.Entry<Object, Object> entry : ((HashMap<Object, Object>) XposedHelpers.getObjectField(param.thisObject, "mSensorListeners")).entrySet()) {
                     SensorEventListener listener = (SensorEventListener) entry.getKey();
 
                     if (listener instanceof VirtualSensorListener) {
                         VirtualSensorListener specialListener = (VirtualSensorListener) listener;
                         if (specialListener.getRealListener() == (android.hardware.SensorEventListener) param.args[0]) {
-                            XposedHelpers.callMethod(param.thisObject, "unregisterListenerImpl", listener, (Sensor) null);
+                            listenersToRemove.add(listener);
                         }
                     }
+                }
+
+                for (SensorEventListener listener : listenersToRemove) {
+                    XposedHelpers.callMethod(param.thisObject, "unregisterListenerImpl", listener, (Sensor) null);
                 }
             }
         });

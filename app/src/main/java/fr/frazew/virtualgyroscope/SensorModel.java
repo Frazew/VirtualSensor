@@ -7,6 +7,7 @@ public class SensorModel {
     public int minDelay;
     public float maxRange;
     public boolean alreadyThere = false;
+    public boolean isAlreadyNative = false;
     public String stringType;
     public String permission;
 
