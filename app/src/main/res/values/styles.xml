@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="grey_200">#eeeeee</color>
+    <color name="cyan_500">#00bcd4</color>
+    <color name="cyan_900">#006064</color>
+    <color name="pink_A200">#ff4081</color>
+    <color name="grey_800">#424242</color>
+    <color name="grey_50">#fafafa</color>
+    <style name="AppTheme" parent="@style/Theme.AppCompat.Light.NoActionBar">
+        <item name="android:windowBackground">@color/grey_200</item>
+        <item name="colorPrimary">@color/cyan_900</item>
+        <item name="colorPrimaryDark">@color/cyan_900</item>
+        <item name="colorAccent">@color/pink_A200</item>
+        <item name="android:textColorPrimary">@color/grey_50</item>
+    </style>
+</resources>
