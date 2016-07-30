@@ -318,15 +318,20 @@ public class SensorChangeHook {
 
                 //All calculations need data from these two sensors, we can safely get their value every time
                 if (s.getType() == Sensor.TYPE_ACCELEROMETER) {
-                    this.accelerometerValues = ((float[]) (param.args[1])).clone();
+                    if (Util.checkSensorResolution(this.accelerometerValues, (float[]) param.args[1], XposedMod.ACCELEROMETER_ACCURACY)) {
+                        this.accelerometerValues = ((float[]) (param.args[1])).clone();
+                    }
                 }
                 if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-                    this.magneticValues = ((float[]) (param.args[1])).clone();
-                    if (Math.abs(lastMagneticValuesIntervalRead - (long) param.args[3]) * NS2S >= 1) {
-                        this.oneSecondIntervalMagneticValues[this.magneticValuesIntervalCount] = this.magneticValues;
-                        this.lastMagneticValuesIntervalRead = (long) param.args[3];
-                        this.magneticValuesIntervalCount++;
-                        if (this.magneticValuesIntervalCount > 9) this.magneticValuesIntervalCount = 0;
+                    if (Util.checkSensorResolution(this.magneticValues, (float[]) param.args[1], XposedMod.MAGNETIC_ACCURACY)) {
+                        this.magneticValues = ((float[]) (param.args[1])).clone();
+                        if (Math.abs(lastMagneticValuesIntervalRead - (long) param.args[3]) * NS2S >= 1) {
+                            this.oneSecondIntervalMagneticValues[this.magneticValuesIntervalCount] = this.magneticValues;
+                            this.lastMagneticValuesIntervalRead = (long) param.args[3];
+                            this.magneticValuesIntervalCount++;
+                            if (this.magneticValuesIntervalCount > 9)
+                                this.magneticValuesIntervalCount = 0;
+                        }
                     }
                 }
 

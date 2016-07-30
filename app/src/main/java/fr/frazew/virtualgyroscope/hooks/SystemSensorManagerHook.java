@@ -23,14 +23,19 @@ public class SystemSensorManagerHook {
         Iterator<Sensor> iterator = fullSensorList.iterator();
 
         int minDelayAccelerometer = 0;
+        List<SensorModel> sensorsNotToAdd = new ArrayList<>();
         while (iterator.hasNext()) {
             Sensor sensor = iterator.next();
             if (XposedMod.sensorsToEmulate.indexOfKey(sensor.getType()) >= 0) {
-                XposedMod.sensorsToEmulate.get(sensor.getType()).alreadyThere = true;
+                sensorsNotToAdd.add(XposedMod.sensorsToEmulate.get(sensor.getType()));
                 if (!sensor.getVendor().equals("Frazew")) XposedMod.sensorsToEmulate.get(sensor.getType()).isAlreadyNative = true;
             }
 
-            if (sensor.getType() == Sensor.TYPE_ACCELEROMETER) minDelayAccelerometer = sensor.getMinDelay();
+            if (sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                minDelayAccelerometer = sensor.getMinDelay();
+                XposedMod.ACCELEROMETER_ACCURACY = sensor.getResolution();
+            }
+            if (sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) XposedMod.MAGNETIC_ACCURACY = sensor.getResolution();
         }
 
         XposedHelpers.findConstructorBestMatch(Sensor.class).setAccessible(true);
@@ -47,7 +52,7 @@ public class SystemSensorManagerHook {
 
         for (int i = 0; i < XposedMod.sensorsToEmulate.size(); i++) {
             SensorModel model = XposedMod.sensorsToEmulate.valueAt(i);
-            if (!model.alreadyThere) {
+            if (!sensorsNotToAdd.contains(model)) {
                 Sensor s = (Sensor) XposedHelpers.findConstructorBestMatch(Sensor.class).newInstance();
                 XposedHelpers.setObjectField(s, "mType", XposedMod.sensorsToEmulate.keyAt(i));
                 XposedHelpers.setObjectField(s, "mName", model.name);

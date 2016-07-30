@@ -1,6 +1,14 @@
 package fr.frazew.virtualgyroscope;
 
 public class Util {
+
+    public static boolean checkSensorResolution(float[] prevValues, float[] values, float resolution) {
+        if (Math.abs(prevValues[0] - values[0]) > XposedMod.MAGNETIC_ACCURACY) return true;
+        else if (Math.abs(prevValues[1] - values[1]) > XposedMod.MAGNETIC_ACCURACY) return true;
+        else if (Math.abs(prevValues[2] - values[2]) > XposedMod.MAGNETIC_ACCURACY) return true;
+        return false;
+    }
+
     public static float[] normalizeQuaternion(float[] quaternion) {
         float[] returnQuat = new float[4];
         float sqrt = (float)Math.sqrt(quaternion[0]*quaternion[0] + quaternion[1]*quaternion[1] + quaternion[2]*quaternion[2] + quaternion[3]*quaternion[3]);

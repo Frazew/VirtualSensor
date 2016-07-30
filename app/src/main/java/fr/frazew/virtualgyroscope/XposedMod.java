@@ -26,6 +26,10 @@ import fr.frazew.virtualgyroscope.hooks.SystemSensorManagerHook;
 public class XposedMod implements IXposedHookLoadPackage {
     public static boolean FIRST_LAUNCH_SINCE_BOOT = true;
 
+    public static float[] ROTATION_MATRIX = new float[16]; // @TODO Change this to a better way
+    public static float MAGNETIC_ACCURACY; // @TODO Change this too
+    public static float ACCELEROMETER_ACCURACY; // @TODO And this
+
     public static final SparseIntArray sensorTypetoHandle = new SparseIntArray() {{
         append(Sensor.TYPE_ROTATION_VECTOR, 4242);
         append(Sensor.TYPE_GYROSCOPE, 4243);
@@ -36,7 +40,7 @@ public class XposedMod implements IXposedHookLoadPackage {
 
     public static final SparseArray<SensorModel> sensorsToEmulate = new SparseArray<SensorModel>() {{
         append(Sensor.TYPE_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_ROTATION_VECTOR, "VirtualSensor RotationVector", sensorTypetoHandle.get(Sensor.TYPE_ROTATION_VECTOR), 0.01F, -1, -1, (Build.VERSION.SDK_INT > 19) ? Sensor.STRING_TYPE_ROTATION_VECTOR : "", "none"));
-        append(Sensor.TYPE_GYROSCOPE, new SensorModel(Sensor.TYPE_GYROSCOPE, "VirtualSensor Gyroscope", sensorTypetoHandle.get(Sensor.TYPE_GYROSCOPE), 0.01F, -1, (float) Math.PI, (Build.VERSION.SDK_INT > 19) ? Sensor.STRING_TYPE_GYROSCOPE : "", "android.hardware.sensor.gyroscope"));
+        append(Sensor.TYPE_GYROSCOPE, new SensorModel(Sensor.TYPE_GYROSCOPE, "VirtualSensor Gyroscope", sensorTypetoHandle.get(Sensor.TYPE_GYROSCOPE), 0.01F, -1, 5460, (Build.VERSION.SDK_INT > 19) ? Sensor.STRING_TYPE_GYROSCOPE : "", "android.hardware.sensor.gyroscope"));
         if (Build.VERSION.SDK_INT >= 19) append(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, "VirtualSensor GeomagneticRotationVector", sensorTypetoHandle.get(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR), 0.01F, -1, -1, (Build.VERSION.SDK_INT > 19) ? Sensor.STRING_TYPE_GEOMAGNETIC_ROTATION_VECTOR : "", "none"));
         append(Sensor.TYPE_GRAVITY, new SensorModel(Sensor.TYPE_GRAVITY, "VirtualSensor Gravity", sensorTypetoHandle.get(Sensor.TYPE_GRAVITY), 0.01F, -1, -1, (Build.VERSION.SDK_INT > 19) ? Sensor.STRING_TYPE_GRAVITY : "", "none"));
         append(Sensor.TYPE_LINEAR_ACCELERATION, new SensorModel(Sensor.TYPE_LINEAR_ACCELERATION, "VirtualSensor LinearAcceleration", sensorTypetoHandle.get(Sensor.TYPE_LINEAR_ACCELERATION), 0.01F, -1, -1, (Build.VERSION.SDK_INT > 19) ? Sensor.STRING_TYPE_LINEAR_ACCELERATION : "", "none")); // Had to use another handle as it broke the magnetic sensor's readings (?!)
@@ -54,6 +58,7 @@ public class XposedMod implements IXposedHookLoadPackage {
         }
         hookSensorValues(lpparam);
         addSensors(lpparam);
+        //hookCarboard(lpparam);
 
         // Simple Pokémon GO hook, trying to understand why it doesn't understand the values from the virtual sensors.
         if(lpparam.packageName.contains("nianticlabs.pokemongo")) {
@@ -69,6 +74,76 @@ public class XposedMod implements IXposedHookLoadPackage {
                 }
             });
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void hookCarboard(final LoadPackageParam lpparam) {
+        try {
+            Class<?> headTransform = XposedHelpers.findClass("com.google.vrtoolkit.cardboard.HeadTransform", lpparam.classLoader);
+            XposedHelpers.findAndHookConstructor(headTransform, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
+                            new SensorEventListener() {
+                                @Override
+                                public void onSensorChanged(SensorEvent event) {
+
+                                }
+
+                                @Override
+                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+                                }
+                            },
+                            XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_GYROSCOPE),
+                            0,
+                            null
+                    );
+                    super.afterHookedMethod(param);
+                }
+            });
+            XposedHelpers.findAndHookMethod("com.google.vrtoolkit.cardboard.HeadTransform", lpparam.classLoader, "getHeadView", new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    param.setResult(XposedMod.ROTATION_MATRIX);
+                    XposedBridge.log("VirtualSensor: Setting ROTATION_MATRIX as HeadTransform");
+                    super.afterHookedMethod(param);
+                }
+            });
+        } catch (Exception e) {}
+
+        /*try {
+            Class<?> eye = XposedHelpers.findClass("com.google.vrtoolkit.cardboard.Eye", lpparam.classLoader);
+            XposedHelpers.findAndHookConstructor(eye, lpparam.classLoader, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
+                            new SensorEventListener() {
+                                @Override
+                                public void onSensorChanged(SensorEvent event) {
+
+                                }
+
+                                @Override
+                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+                                }
+                            },
+                            XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_GYROSCOPE),
+                            0,
+                            null
+                    );
+                    super.afterHookedMethod(param);
+                }
+            });
+            XposedHelpers.findAndHookMethod("com.google.vrtoolkit.cardboard.Eye", lpparam.classLoader, "getEyeView", new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    param.setResult(XposedMod.ROTATION_MATRIX);
+                    super.afterHookedMethod(param);
+                }
+            });
+        } catch (Exception e) {}*/
     }
 
     @SuppressWarnings("unchecked")
