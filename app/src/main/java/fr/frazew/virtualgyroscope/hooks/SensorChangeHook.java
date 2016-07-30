@@ -54,7 +54,7 @@ public class SensorChangeHook {
                     lastFilterValues = (float[][]) filter.get(2);
 
                     System.arraycopy(values, 0, returnValues, 0, values.length);
-                    virtualListener.sensorRef = sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_GYROSCOPE)));
+                    if (sensors != null) virtualListener.sensorRef = sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_GYROSCOPE)));
                 }
             } else if ((Build.VERSION.SDK_INT >= 19 && virtualListener.getSensor().getType() == Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) || virtualListener.getSensor().getType() == Sensor.TYPE_ROTATION_VECTOR) {
                 float[] values = new float[3];
@@ -68,9 +68,9 @@ public class SensorChangeHook {
 
                 System.arraycopy(values, 0, returnValues, 0, values.length);
                 if (virtualListener.getSensor().getType() == Sensor.TYPE_ROTATION_VECTOR)
-                    virtualListener.sensorRef = sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_ROTATION_VECTOR)));
+                    if (sensors != null) virtualListener.sensorRef = sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_ROTATION_VECTOR)));
                 else if (Build.VERSION.SDK_INT >= 19)
-                    virtualListener.sensorRef = sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)));
+                        if (sensors != null) virtualListener.sensorRef = sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR)));
             } else if (virtualListener.getSensor().getType() == Sensor.TYPE_GRAVITY) {
                 float[] values = new float[3];
                 float[] rotationMatrix = new float[9];
@@ -87,7 +87,7 @@ public class SensorChangeHook {
                 values[2] = gravityRot[2];
 
                 System.arraycopy(values, 0, returnValues, 0, values.length);
-                virtualListener.sensorRef = sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_GRAVITY)));
+                if (sensors != null) virtualListener.sensorRef = sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_GRAVITY)));
             } else if (virtualListener.getSensor().getType() == Sensor.TYPE_LINEAR_ACCELERATION) {
                 float[] values = new float[3];
                 float[] rotationMatrix = new float[9];
@@ -105,7 +105,7 @@ public class SensorChangeHook {
                 values[2] = accelerometerValues[2] - gravityRot[2];
 
                 System.arraycopy(values, 0, returnValues, 0, values.length);
-                virtualListener.sensorRef = sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_LINEAR_ACCELERATION)));
+                if (sensors != null) virtualListener.sensorRef = sensors.valueAt(sensors.indexOfKey(XposedMod.sensorTypetoHandle.get(Sensor.TYPE_LINEAR_ACCELERATION)));
             }
         }
 

@@ -157,6 +157,72 @@
                 android:layout_alignTop="@+id/magneticValuesText"
                 android:layout_toRightOf="@+id/magneticValuesText"
                 android:layout_toEndOf="@+id/magneticValuesText" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:text="Gyroscope :"
+                android:id="@+id/gyroscope"
+                android:textColor="@color/grey_800"
+                android:layout_below="@+id/magneticValuesText"
+                android:layout_alignLeft="@+id/magneticValuesText"
+                android:layout_alignStart="@+id/magneticValuesText" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:id="@+id/gyroscopeValue"
+                android:text="..."
+                android:layout_marginLeft="5dp"
+                android:layout_alignTop="@+id/gyroscope"
+                android:layout_toRightOf="@+id/gyroscope"
+                android:layout_toEndOf="@+id/gyroscope" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:text="Gyroscope values :"
+                android:id="@+id/gyroscopeValuesText"
+                android:textColor="@color/grey_800"
+                android:layout_below="@+id/gyroscope"
+                android:layout_alignLeft="@+id/gyroscope"
+                android:layout_alignStart="@+id/gyroscope" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:id="@+id/gyroscopeValuesTextValues"
+                android:text="..."
+                android:layout_marginLeft="5dp"
+                android:layout_alignTop="@+id/gyroscopeValuesText"
+                android:layout_toRightOf="@+id/gyroscopeValuesText"
+                android:layout_toEndOf="@+id/gyroscopeValuesText" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:text="Theoretical values :"
+                android:id="@+id/gyroscopeTheoryValuesText"
+                android:textColor="@color/grey_800"
+                android:layout_below="@+id/gyroscopeValuesText"
+                android:layout_alignLeft="@+id/gyroscopeValuesText"
+                android:layout_alignStart="@+id/gyroscopeValuesText" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textAppearance="?android:attr/textAppearanceMedium"
+                android:id="@+id/gyroscopeTheoryValues"
+                android:text="..."
+                android:layout_marginLeft="5dp"
+                android:layout_alignTop="@+id/gyroscopeTheoryValuesText"
+                android:layout_toRightOf="@+id/gyroscopeTheoryValuesText"
+                android:layout_toEndOf="@+id/gyroscopeTheoryValuesText" />
         </RelativeLayout>
 
     </RelativeLayout>
