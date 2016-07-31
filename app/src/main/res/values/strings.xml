@@ -2,6 +2,16 @@
 <resources>
     <string name="app_name">VirtualSensor</string>
 
-    <string name="hello_world">Hello world!</string>
+    <string name="hello_world" translatable="false">Hello world!</string>
     <string name="action_settings">Settings</string>
+    <string name="str_module_information">Module information :</string>
+    <string name="str_version">Version :</string>
+    <string name="str_accelerometer">Accelerometer :</string>
+    <string name="str_accelerometer_values">Accelerometer values :</string>
+    <string name="str_magnetic_sensor">Magnetic sensor :</string>
+    <string name="str_magnetic_values">Magnetic values :</string>
+    <string name="str_gyroscope">Gyroscope :</string>
+    <string name="str_gyroscope_values">Gyroscope values :</string>
+    <string name="str_theoretical_values">Theoretical values :</string>
+    <string name="str_values_identical">Values identical :</string>
 </resources>

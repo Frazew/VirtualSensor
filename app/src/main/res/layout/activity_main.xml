@@ -35,7 +35,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textAppearance="?android:attr/textAppearanceLarge"
-            android:text="Module information :"
+            android:text="@string/str_module_information"
             android:id="@+id/textView"
             android:layout_alignParentTop="true"
             android:layout_centerHorizontal="true"
@@ -52,7 +52,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAppearance="?android:attr/textAppearanceMedium"
-                android:text="Version :"
+                android:text="@string/str_version"
                 android:id="@+id/version"
                 android:layout_alignParentTop="true"
                 android:layout_alignParentLeft="true"
@@ -74,10 +74,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAppearance="?android:attr/textAppearanceMedium"
-                android:text="Accelerometer :"
+                android:text="@string/str_accelerometer"
                 android:id="@+id/accelerometer"
                 android:textColor="@color/grey_800"
-                android:layout_below="@+id/version"
+                android:layout_below="@+id/versionValue"
                 android:layout_alignLeft="@+id/version"
                 android:layout_alignStart="@+id/version" />
 
@@ -96,10 +96,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAppearance="?android:attr/textAppearanceMedium"
-                android:text="Accelerometer values :"
+                android:text="@string/str_accelerometer_values"
                 android:id="@+id/accelerometerValuesText"
                 android:textColor="@color/grey_800"
-                android:layout_below="@+id/accelerometer"
+                android:layout_below="@+id/accelerometerValue"
                 android:layout_alignLeft="@+id/accelerometer"
                 android:layout_alignStart="@+id/accelerometer" />
 
@@ -118,10 +118,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAppearance="?android:attr/textAppearanceMedium"
-                android:text="Magnetic sensor :"
+                android:text="@string/str_magnetic_sensor"
                 android:id="@+id/magneticSensor"
                 android:textColor="@color/grey_800"
-                android:layout_below="@+id/accelerometerValuesText"
+                android:layout_below="@+id/accelerometerValuesTextValues"
                 android:layout_alignLeft="@+id/accelerometerValuesText"
                 android:layout_alignStart="@+id/accelerometerValuesText" />
 
@@ -140,10 +140,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAppearance="?android:attr/textAppearanceMedium"
-                android:text="Magnetic values :"
+                android:text="@string/str_magnetic_values"
                 android:id="@+id/magneticValuesText"
                 android:textColor="@color/grey_800"
-                android:layout_below="@+id/magneticSensor"
+                android:layout_below="@+id/magneticSensorValue"
                 android:layout_alignLeft="@+id/magneticSensor"
                 android:layout_alignStart="@+id/magneticSensor" />
 
@@ -162,10 +162,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAppearance="?android:attr/textAppearanceMedium"
-                android:text="Gyroscope :"
+                android:text="@string/str_gyroscope"
                 android:id="@+id/gyroscope"
                 android:textColor="@color/grey_800"
-                android:layout_below="@+id/magneticValuesText"
+                android:layout_below="@+id/magneticValuesTextValues"
                 android:layout_alignLeft="@+id/magneticValuesText"
                 android:layout_alignStart="@+id/magneticValuesText" />
 
@@ -184,10 +184,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAppearance="?android:attr/textAppearanceMedium"
-                android:text="Gyroscope values :"
+                android:text="@string/str_gyroscope_values"
                 android:id="@+id/gyroscopeValuesText"
                 android:textColor="@color/grey_800"
-                android:layout_below="@+id/gyroscope"
+                android:layout_below="@+id/gyroscopeValue"
                 android:layout_alignLeft="@+id/gyroscope"
                 android:layout_alignStart="@+id/gyroscope" />
 
@@ -206,10 +206,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAppearance="?android:attr/textAppearanceMedium"
-                android:text="Theoretical values :"
+                android:text="@string/str_theoretical_values"
                 android:id="@+id/gyroscopeTheoryValuesText"
                 android:textColor="@color/grey_800"
-                android:layout_below="@+id/gyroscopeValuesText"
+                android:layout_below="@+id/gyroscopeValuesTextValues"
                 android:layout_alignLeft="@+id/gyroscopeValuesText"
                 android:layout_alignStart="@+id/gyroscopeValuesText" />
 
@@ -228,10 +228,10 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:textAppearance="?android:attr/textAppearanceMedium"
-                android:text="Values identical :"
+                android:text="@string/str_values_identical"
                 android:id="@+id/identicalCheck"
                 android:textColor="@color/grey_800"
-                android:layout_below="@+id/gyroscopeTheoryValuesText"
+                android:layout_below="@+id/gyroscopeTheoryValues"
                 android:layout_alignLeft="@+id/gyroscopeTheoryValuesText"
                 android:layout_alignStart="@+id/gyroscopeTheoryValuesText" />
 
