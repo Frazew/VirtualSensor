@@ -138,30 +138,32 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onSensorChanged(SensorEvent event) {
-                    if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
-                        if (Util.checkSensorResolution(this.accelerometerValues, event.values, accelerometerResolution)) {
-                            this.accelerometerValues = event.values.clone();
+                    if (event.sensor != null) {
+                        if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
+                            if (Util.checkSensorResolution(this.accelerometerValues, event.values, accelerometerResolution)) {
+                                this.accelerometerValues = event.values.clone();
+                            }
+
+                            List<Object> list = SensorChangeHook.changeSensorValues(event.sensor, this.accelerometerValues, this.magneticValues, this, this.prevRotationMatrix, event.timestamp, this.prevTimestamp, this.prevValues, this.lastFilterValues, null);
+                            this.prevTimestamp = (long) list.get(1);
+                            this.prevRotationMatrix = (float[]) list.get(2);
+                            this.prevValues = (float[]) list.get(3);
+                            this.lastFilterValues = (float[][]) list.get(4);
+
+                            float[] values = (float[]) list.get(0);
+
+                            String text = "";
+                            for (int i = 0; i < values.length; i++) {
+                                text += Math.round(values[i] * 100) / (float) 100;
+                                if (i < values.length - 1) text += "; ";
+                            }
+                            theoreticalGyroscopeValuesFloat = values.clone();
+                            theoryGyro.setText(text);
                         }
-
-                        List<Object> list = SensorChangeHook.changeSensorValues(event.sensor, this.accelerometerValues, this.magneticValues, this, this.prevRotationMatrix, event.timestamp, this.prevTimestamp, this.prevValues, this.lastFilterValues, null);
-                        this.prevTimestamp = (long)list.get(1);
-                        this.prevRotationMatrix = (float[])list.get(2);
-                        this.prevValues = (float[])list.get(3);
-                        this.lastFilterValues = (float[][])list.get(4);
-
-                        float[] values = (float[])list.get(0);
-
-                        String text = "";
-                        for (int i = 0; i < values.length; i++) {
-                            text += Math.round(values[i] * 100) / (float)100;
-                            if (i < values.length - 1) text += "; ";
-                        }
-                        theoreticalGyroscopeValuesFloat = values.clone();
-                        theoryGyro.setText(text);
-                    }
-                    if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-                        if (Util.checkSensorResolution(this.accelerometerValues, event.values, magneticResolution)) {
-                            this.magneticValues = event.values.clone();
+                        if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+                            if (Util.checkSensorResolution(this.accelerometerValues, event.values, magneticResolution)) {
+                                this.magneticValues = event.values.clone();
+                            }
                         }
                     }
                 }
