@@ -27,6 +27,13 @@ import fr.frazew.virtualgyroscope.hooks.SensorChangeHook;
 
 public class MainActivity extends AppCompatActivity {
     private SensorManager sensorManager;
+    private float[] gyroscopeValuesFloat = new float[3];
+    private float[] theoreticalGyroscopeValuesFloat = new float[3];
+
+    private SensorEventListener accelerometerListener;
+    private SensorEventListener magneticListener;
+    private SensorEventListener gyroListener;
+    private SensorEventListener virtualListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -53,7 +60,7 @@ public class MainActivity extends AppCompatActivity {
 
         final TextView accelerometerValues = (TextView) findViewById(R.id.accelerometerValuesTextValues);
         if (sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) != null) {
-            sensorManager.registerListener(new SensorEventListener() {
+            accelerometerListener = new SensorEventListener() {
                 @Override
                 public void onSensorChanged(SensorEvent event) {
                     String text = "";
@@ -67,7 +74,8 @@ public class MainActivity extends AppCompatActivity {
                 @Override
                 public void onAccuracyChanged(Sensor sensor, int accuracy) {
                 }
-            }, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_UI);
+            };
+            sensorManager.registerListener(accelerometerListener, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_UI);
         }
 
         TextView magnetic = (TextView) findViewById(R.id.magneticSensorValue);
@@ -75,7 +83,7 @@ public class MainActivity extends AppCompatActivity {
 
         final TextView magneticValues = (TextView) findViewById(R.id.magneticValuesTextValues);
         if (sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD) != null) {
-            sensorManager.registerListener(new SensorEventListener() {
+            magneticListener = new SensorEventListener() {
                 @Override
                 public void onSensorChanged(SensorEvent event) {
                     String text = "";
@@ -88,7 +96,8 @@ public class MainActivity extends AppCompatActivity {
 
                 @Override
                 public void onAccuracyChanged(Sensor sensor, int accuracy) {}
-            }, sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), SensorManager.SENSOR_DELAY_UI);
+            };
+            sensorManager.registerListener(magneticListener, sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), SensorManager.SENSOR_DELAY_UI);
         }
 
         TextView gyroscope = (TextView) findViewById(R.id.gyroscopeValue);
@@ -96,7 +105,7 @@ public class MainActivity extends AppCompatActivity {
 
         final TextView gyroscopeValues = (TextView) findViewById(R.id.gyroscopeValuesTextValues);
         if (sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE) != null) {
-            sensorManager.registerListener(new SensorEventListener() {
+            gyroListener = new SensorEventListener() {
                 @Override
                 public void onSensorChanged(SensorEvent event) {
                     String text = "";
@@ -104,12 +113,14 @@ public class MainActivity extends AppCompatActivity {
                         text += Math.round(event.values[i] * 100) / (float)100;
                         if (i < event.values.length - 1) text += "; ";
                     }
+                    gyroscopeValuesFloat = event.values.clone();
                     gyroscopeValues.setText(text);
                 }
 
                 @Override
                 public void onAccuracyChanged(Sensor sensor, int accuracy) {}
-            }, sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE), SensorManager.SENSOR_DELAY_UI);
+            };
+            sensorManager.registerListener(gyroListener, sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE), SensorManager.SENSOR_DELAY_UI);
         }
 
         final TextView theoryGyro = (TextView) findViewById(R.id.gyroscopeTheoryValues);
@@ -117,7 +128,7 @@ public class MainActivity extends AppCompatActivity {
             final float accelerometerResolution = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER).getResolution();
             final float magneticResolution = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD).getResolution();
 
-            VirtualSensorListener virtualListener = new VirtualSensorListener(null, sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)) {
+            this.virtualListener = new VirtualSensorListener(null, sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)) {
                 private float[] accelerometerValues = new float[3];
                 private float[] magneticValues = new float[3];
                 private float[] prevRotationMatrix = new float[9];
@@ -145,6 +156,7 @@ public class MainActivity extends AppCompatActivity {
                             text += Math.round(values[i] * 100) / (float)100;
                             if (i < values.length - 1) text += "; ";
                         }
+                        theoreticalGyroscopeValuesFloat = values.clone();
                         theoryGyro.setText(text);
                     }
                     if (event.sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
@@ -157,6 +169,20 @@ public class MainActivity extends AppCompatActivity {
             sensorManager.registerListener(virtualListener, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_UI);
             sensorManager.registerListener(virtualListener, sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), SensorManager.SENSOR_DELAY_UI);
         }
+
+        TextView identicalCheck = (TextView) findViewById(R.id.identicalCheckValue);
+        if (this.theoreticalGyroscopeValuesFloat[0] == this.gyroscopeValuesFloat[0] && this.theoreticalGyroscopeValuesFloat[1] == this.gyroscopeValuesFloat[1] && this.theoreticalGyroscopeValuesFloat[2] == this.theoreticalGyroscopeValuesFloat[2]) {
+            identicalCheck.setText("true");
+        } else identicalCheck.setText("false");
+    }
+
+    @Override
+    protected void onDestroy() {
+        sensorManager.unregisterListener(accelerometerListener);
+        sensorManager.unregisterListener(magneticListener);
+        sensorManager.unregisterListener(gyroListener);
+        sensorManager.unregisterListener(virtualListener);
+        super.onDestroy();
     }
 
     @Override
