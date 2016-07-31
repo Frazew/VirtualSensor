@@ -10,10 +10,13 @@ android {
         targetSdkVersion 23
         versionCode 140
         versionName "1.4"
+        resConfig "en"
+        resConfigs "nodpi", "hdpi"
     }
     buildTypes {
         release {
-            minifyEnabled false
+            minifyEnabled true
+            shrinkResources true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
