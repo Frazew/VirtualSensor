@@ -3,9 +3,9 @@ package fr.frazew.virtualgyroscope;
 public class Util {
 
     public static boolean checkSensorResolution(float[] prevValues, float[] values, float resolution) {
-        if (Math.abs(prevValues[0] - values[0]) > XposedMod.MAGNETIC_ACCURACY) return true;
-        else if (Math.abs(prevValues[1] - values[1]) > XposedMod.MAGNETIC_ACCURACY) return true;
-        else if (Math.abs(prevValues[2] - values[2]) > XposedMod.MAGNETIC_ACCURACY) return true;
+        if (Math.abs(prevValues[0] - values[0]) > resolution) return true;
+        else if (Math.abs(prevValues[1] - values[1]) > resolution) return true;
+        else if (Math.abs(prevValues[2] - values[2]) > resolution) return true;
         return false;
     }
 
