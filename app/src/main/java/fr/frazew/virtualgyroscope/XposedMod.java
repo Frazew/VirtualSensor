@@ -227,7 +227,7 @@ public class XposedMod implements IXposedHookLoadPackage {
 
         // registerListenerImpl hook
         if (Build.VERSION.SDK_INT <= 18) {
-            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager", lpparam.classLoader, "registerListenerImpl", android.hardware.SensorEventListener.class, android.hardware.Sensor.class, int.class, android.os.Handler.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod("android.hardware.SensorManager", lpparam.classLoader, "registerListener", android.hardware.SensorEventListener.class, android.hardware.Sensor.class, int.class, android.os.Handler.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     if (param.args[1] == null) return;
@@ -236,16 +236,16 @@ public class XposedMod implements IXposedHookLoadPackage {
                     // We check that the listener isn't of type VirtualSensorListener. Although that should not happen, it would probably be nasty.
                     if (sensorsToEmulate.indexOfKey(((Sensor) param.args[1]).getType()) >= 0 && !(listener instanceof VirtualSensorListener) && !sensorsToEmulate.get(((Sensor) param.args[1]).getType()).isAlreadyNative) {
                         SensorEventListener specialListener = new VirtualSensorListener(listener, ((Sensor) param.args[1]));
-                        XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
+                        XposedHelpers.callMethod(param.thisObject, "registerListener",
                                 specialListener,
                                 XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_ACCELEROMETER),
-                                XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
+                                param.args[2],
                                 (android.os.Handler) param.args[3]
                         );
-                        XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
+                        XposedHelpers.callMethod(param.thisObject, "registerListener",
                                 specialListener,
                                 XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD),
-                                XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
+                                param.args[2],
                                 (android.os.Handler) param.args[3]
                         );
 
@@ -254,7 +254,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                 }
             });
         } else {
-            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager", lpparam.classLoader, "registerListenerImpl", android.hardware.SensorEventListener.class, android.hardware.Sensor.class, int.class, android.os.Handler.class, int.class, int.class, new XC_MethodHook() {
+            XposedHelpers.findAndHookMethod("android.hardware.SensorManager", lpparam.classLoader, "registerListener", android.hardware.SensorEventListener.class, android.hardware.Sensor.class, int.class, int.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
                     if (param.args[1] == null) return;
@@ -267,7 +267,38 @@ public class XposedMod implements IXposedHookLoadPackage {
                                 specialListener,
                                 XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_ACCELEROMETER),
                                 XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
-                                (android.os.Handler) param.args[3],
+                                null,
+                                param.args[3],
+                                0
+                        );
+                        XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
+                                specialListener,
+                                XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD),
+                                XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
+                                null,
+                                param.args[3],
+                                0
+                        );
+
+                        param.args[0] = specialListener;
+                    }
+                }
+            });
+
+            XposedHelpers.findAndHookMethod("android.hardware.SensorManager", lpparam.classLoader, "registerListener", android.hardware.SensorEventListener.class, android.hardware.Sensor.class, int.class, android.os.Handler.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    if (param.args[1] == null) return;
+                    SensorEventListener listener = (SensorEventListener) param.args[0];
+
+                    // We check that the listener isn't of type VirtualSensorListener. Although that should not happen, it would probably be nasty.
+                    if (sensorsToEmulate.indexOfKey(((Sensor) param.args[1]).getType()) >= 0 && !(listener instanceof VirtualSensorListener) && !sensorsToEmulate.get(((Sensor) param.args[1]).getType()).isAlreadyNative) {
+                        SensorEventListener specialListener = new VirtualSensorListener(listener, ((Sensor) param.args[1]));
+                        XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
+                                specialListener,
+                                XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_ACCELEROMETER),
+                                XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
+                                (android.os.Handler)param.args[3],
                                 0,
                                 0
                         );
@@ -275,8 +306,39 @@ public class XposedMod implements IXposedHookLoadPackage {
                                 specialListener,
                                 XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD),
                                 XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
-                                (android.os.Handler) param.args[3],
+                                (android.os.Handler)param.args[3],
                                 0,
+                                0
+                        );
+
+                        param.args[0] = specialListener;
+                    }
+                }
+            });
+
+            XposedHelpers.findAndHookMethod("android.hardware.SensorManager", lpparam.classLoader, "registerListener", android.hardware.SensorEventListener.class, android.hardware.Sensor.class, int.class, int.class, android.os.Handler.class, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    if (param.args[1] == null) return;
+                    SensorEventListener listener = (SensorEventListener) param.args[0];
+
+                    // We check that the listener isn't of type VirtualSensorListener. Although that should not happen, it would probably be nasty.
+                    if (sensorsToEmulate.indexOfKey(((Sensor) param.args[1]).getType()) >= 0 && !(listener instanceof VirtualSensorListener) && !sensorsToEmulate.get(((Sensor) param.args[1]).getType()).isAlreadyNative) {
+                        SensorEventListener specialListener = new VirtualSensorListener(listener, ((Sensor) param.args[1]));
+                        XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
+                                specialListener,
+                                XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_ACCELEROMETER),
+                                XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
+                                (android.os.Handler)param.args[4],
+                                param.args[3],
+                                0
+                        );
+                        XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
+                                specialListener,
+                                XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD),
+                                XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
+                                (android.os.Handler)param.args[4],
+                                param.args[3],
                                 0
                         );
 
