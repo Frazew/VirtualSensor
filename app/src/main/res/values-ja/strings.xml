@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VirtualSensor</string>
+    <string name="action_settings">設定</string>
+    <string name="str_accelerometer">加速度センサー :</string>
+    <string name="str_accelerometer_values">加速度センサーの値 :</string>
+    <string name="str_gyroscope">ジャイロセンサー :</string>
+    <string name="str_gyroscope_values">ジャイロセンサーの値 :</string>
+    <string name="str_magnetic_sensor">磁気センサー :</string>
+    <string name="str_magnetic_values">磁気センサーの値 :</string>
+    <string name="str_module_information">モジュール情報 :</string>
+    <string name="str_theoretical_values">理論値 :</string>
+    <string name="str_values_identical">値の一致 :</string>
+    <string name="str_version">バージョン :</string>
+</resources>
