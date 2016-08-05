@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VirtualSensor</string>
+    <string name="action_settings">Paramètres</string>
+    <string name="str_accelerometer">Acceleromètre :</string>
+    <string name="str_accelerometer_values">Valeurs de l\'acceleromètre :</string>
+    <string name="str_gyroscope">Gyroscope :</string>
+    <string name="str_gyroscope_values">Valeurs du gyroscope :</string>
+    <string name="str_magnetic_sensor">Champ magnétique :</string>
+    <string name="str_magnetic_values">Valeurs du champ magnetique :</string>
+    <string name="str_module_information">Informations sur le module :</string>
+    <string name="str_theoretical_values">Valeurs théoriques :</string>
+    <string name="str_values_identical">Valeurs identiques :</string>
+    <string name="str_version">Version :</string>
+</resources>

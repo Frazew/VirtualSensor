@@ -109,10 +109,8 @@
                 android:textAppearance="?android:attr/textAppearanceMedium"
                 android:id="@+id/accelerometerValuesTextValues"
                 android:text="..."
-                android:layout_marginLeft="5dp"
-                android:layout_alignTop="@+id/accelerometerValuesText"
-                android:layout_toRightOf="@+id/accelerometerValuesText"
-                android:layout_toEndOf="@+id/accelerometerValuesText" />
+                android:layout_below="@+id/accelerometerValuesText"
+                android:layout_centerHorizontal="true" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -153,10 +151,8 @@
                 android:textAppearance="?android:attr/textAppearanceMedium"
                 android:id="@+id/magneticValuesTextValues"
                 android:text="..."
-                android:layout_marginLeft="5dp"
-                android:layout_alignTop="@+id/magneticValuesText"
-                android:layout_toRightOf="@+id/magneticValuesText"
-                android:layout_toEndOf="@+id/magneticValuesText" />
+                android:layout_below="@+id/magneticValuesText"
+                android:layout_centerHorizontal="true" />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -197,10 +193,8 @@
                 android:textAppearance="?android:attr/textAppearanceMedium"
                 android:id="@+id/gyroscopeValuesTextValues"
                 android:text="..."
-                android:layout_marginLeft="5dp"
-                android:layout_alignTop="@+id/gyroscopeValuesText"
-                android:layout_toRightOf="@+id/gyroscopeValuesText"
-                android:layout_toEndOf="@+id/gyroscopeValuesText" />
+                android:layout_below="@+id/gyroscopeValuesText"
+                android:layout_centerHorizontal="true"  />
 
             <TextView
                 android:layout_width="wrap_content"
@@ -219,10 +213,8 @@
                 android:textAppearance="?android:attr/textAppearanceMedium"
                 android:id="@+id/gyroscopeTheoryValues"
                 android:text="..."
-                android:layout_marginLeft="5dp"
-                android:layout_alignTop="@+id/gyroscopeTheoryValuesText"
-                android:layout_toRightOf="@+id/gyroscopeTheoryValuesText"
-                android:layout_toEndOf="@+id/gyroscopeTheoryValuesText" />
+                android:layout_below="@+id/gyroscopeTheoryValuesText"
+                android:layout_centerHorizontal="true" />
 
             <TextView
                 android:layout_width="wrap_content"
