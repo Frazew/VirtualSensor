@@ -244,7 +244,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                         );
                         XposedHelpers.callMethod(param.thisObject, "registerListener",
                                 specialListener,
-                                XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD),
+                                XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED),
                                 param.args[2],
                                 (android.os.Handler) param.args[3]
                         );
@@ -273,7 +273,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                         );
                         XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
                                 specialListener,
-                                XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD),
+                                XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED),
                                 XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
                                 null,
                                 param.args[3],
@@ -304,7 +304,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                         );
                         XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
                                 specialListener,
-                                XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD),
+                                XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED),
                                 XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
                                 (android.os.Handler)param.args[3],
                                 0,
@@ -335,7 +335,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                         );
                         XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
                                 specialListener,
-                                XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD),
+                                XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED),
                                 XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
                                 (android.os.Handler)param.args[4],
                                 param.args[3],
