@@ -157,11 +157,8 @@ public class SensorChangeHook {
                 if (s.getType() == Sensor.TYPE_ACCELEROMETER) {
                     this.accelerometerValues = ((float[]) (param.args[1])).clone();
                 }
-                if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED) {
-                    this.magneticValues[0] = ((float[]) (param.args[1]))[0] - ((float[]) (param.args[1]))[3];
-                    this.magneticValues[1] = ((float[]) (param.args[1]))[1] - ((float[]) (param.args[1]))[4];
-                    this.magneticValues[2] = ((float[]) (param.args[1]))[2] - ((float[]) (param.args[1]))[5];
-
+                if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+                    this.magneticValues = ((float[]) (param.args[1])).clone();
                     if (Math.abs(lastMagneticValuesIntervalRead - ((long[]) param.args[2])[0]) * NS2S >= 1) {
                         this.oneSecondIntervalMagneticValues[this.magneticValuesIntervalCount] = this.magneticValues;
                         this.lastMagneticValuesIntervalRead = ((long[]) param.args[2])[0];
@@ -241,11 +238,8 @@ public class SensorChangeHook {
                 if (s.getType() == Sensor.TYPE_ACCELEROMETER) {
                     this.accelerometerValues = ((float[]) (param.args[1])).clone();
                 }
-                if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED) {
-                    this.magneticValues[0] = ((float[]) (param.args[1]))[0] - ((float[]) (param.args[1]))[3];
-                    this.magneticValues[1] = ((float[]) (param.args[1]))[1] - ((float[]) (param.args[1]))[4];
-                    this.magneticValues[2] = ((float[]) (param.args[1]))[2] - ((float[]) (param.args[1]))[5];
-
+                if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+                    this.magneticValues = ((float[]) (param.args[1])).clone();
                     if (Math.abs(lastMagneticValuesIntervalRead - (long) param.args[3]) * NS2S >= 1) {
                         this.oneSecondIntervalMagneticValues[this.magneticValuesIntervalCount] = this.magneticValues;
                         this.lastMagneticValuesIntervalRead = (long) param.args[3];
@@ -328,12 +322,9 @@ public class SensorChangeHook {
                         this.accelerometerValues = ((float[]) (param.args[1])).clone();
                     }
                 }
-                if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED) {
+                if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
                     if (Util.checkSensorResolution(this.magneticValues, (float[]) param.args[1], XposedMod.MAGNETIC_ACCURACY)) {
-                        this.magneticValues[0] = ((float[]) (param.args[1]))[0] - ((float[]) (param.args[1]))[3];
-                        this.magneticValues[1] = ((float[]) (param.args[1]))[1] - ((float[]) (param.args[1]))[4];
-                        this.magneticValues[2] = ((float[]) (param.args[1]))[2] - ((float[]) (param.args[1]))[5];
-
+                        this.magneticValues = ((float[]) (param.args[1])).clone();
                         if (Math.abs(lastMagneticValuesIntervalRead - (long) param.args[3]) * NS2S >= 1) {
                             this.oneSecondIntervalMagneticValues[this.magneticValuesIntervalCount] = this.magneticValues;
                             this.lastMagneticValuesIntervalRead = (long) param.args[3];

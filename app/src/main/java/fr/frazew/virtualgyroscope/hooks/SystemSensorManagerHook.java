@@ -35,7 +35,7 @@ public class SystemSensorManagerHook {
                 minDelayAccelerometer = sensor.getMinDelay();
                 XposedMod.ACCELEROMETER_ACCURACY = sensor.getResolution();
             }
-            if (sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD_UNCALIBRATED) XposedMod.MAGNETIC_ACCURACY = sensor.getResolution();
+            if (sensor.getType() == Sensor.TYPE_MAGNETIC_FIELD) XposedMod.MAGNETIC_ACCURACY = sensor.getResolution();
         }
 
         XposedHelpers.findConstructorBestMatch(Sensor.class).setAccessible(true);
