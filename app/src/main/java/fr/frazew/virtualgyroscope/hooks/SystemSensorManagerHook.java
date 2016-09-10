@@ -102,8 +102,8 @@ public class SystemSensorManagerHook {
                 XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "sFullSensorsList").setAccessible(true);
                 XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "sHandleToSensor").setAccessible(true);
 
-                XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sHandleToSensor", sensors.get(0));
-                XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sFullSensorsList", sensors.get(1));
+                XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sHandleToSensor", sensors.get(1));
+                XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sFullSensorsList", sensors.get(0));
 
                 Class sensorEventPoolClass = XposedHelpers.findClass("android.hardware.SensorManager$SensorEventPool", lpparam.classLoader);
                 Object sPool = XposedHelpers.newInstance(sensorEventPoolClass, int.class, ((ArrayList<Sensor>)sensors.get(1)).size() * 2);
