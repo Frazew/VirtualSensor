@@ -215,28 +215,6 @@
                 android:text="..."
                 android:layout_below="@+id/gyroscopeTheoryValuesText"
                 android:layout_centerHorizontal="true" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceMedium"
-                android:text="@string/str_values_identical"
-                android:id="@+id/identicalCheck"
-                android:textColor="@color/grey_800"
-                android:layout_below="@+id/gyroscopeTheoryValues"
-                android:layout_alignLeft="@+id/gyroscopeTheoryValuesText"
-                android:layout_alignStart="@+id/gyroscopeTheoryValuesText" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textAppearance="?android:attr/textAppearanceMedium"
-                android:id="@+id/identicalCheckValue"
-                android:text="..."
-                android:layout_marginLeft="5dp"
-                android:layout_alignTop="@+id/identicalCheck"
-                android:layout_toRightOf="@+id/identicalCheck"
-                android:layout_toEndOf="@+id/identicalCheck" />
         </RelativeLayout>
 
     </RelativeLayout>

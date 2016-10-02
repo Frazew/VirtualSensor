@@ -1,16 +1,21 @@
 package fr.frazew.virtualgyroscope;
 
+import android.app.AndroidAppHelper;
+import android.content.Context;
 import android.content.pm.FeatureInfo;
 import android.content.pm.PackageManager;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
 import android.os.Build;
 import android.util.SparseArray;
 import android.util.SparseIntArray;
 
 import de.robv.android.xposed.XposedBridge;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -26,6 +31,7 @@ import fr.frazew.virtualgyroscope.hooks.SystemSensorManagerHook;
 public class XposedMod implements IXposedHookLoadPackage {
     public static boolean FIRST_LAUNCH_SINCE_BOOT = true;
 
+    public static Class<?> SENSOR_EVENT_CLASS;
     public static float[] ROTATION_MATRIX = new float[16]; // @TODO Change this to a better way
     public static float MAGNETIC_ACCURACY; // @TODO Change this too
     public static float ACCELEROMETER_ACCURACY; // @TODO And this
@@ -56,9 +62,14 @@ public class XposedMod implements IXposedHookLoadPackage {
 
             hookPackageFeatures(lpparam);
         }
+        if (SENSOR_EVENT_CLASS == null) {
+            try {
+                SENSOR_EVENT_CLASS = XposedHelpers.findClass("android.hardware.SensorEvent", lpparam.classLoader);
+            } catch (Exception e) { SENSOR_EVENT_CLASS = null; }
+        }
         hookSensorValues(lpparam);
         addSensors(lpparam);
-        //hookCarboard(lpparam);
+        hookCarboard(lpparam);
 
         // Simple Pokémon GO hook, trying to understand why it doesn't understand the values from the virtual sensors.
         if(lpparam.packageName.contains("nianticlabs.pokemongo")) {
@@ -79,71 +90,90 @@ public class XposedMod implements IXposedHookLoadPackage {
     @SuppressWarnings("unchecked")
     private void hookCarboard(final LoadPackageParam lpparam) {
         try {
-            Class<?> headTransform = XposedHelpers.findClass("com.google.vrtoolkit.cardboard.HeadTransform", lpparam.classLoader);
-            XposedHelpers.findAndHookConstructor(headTransform, new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
-                            new SensorEventListener() {
+            final Class headTransform = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.HeadTransform", lpparam.classLoader);
+            final Class eye = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.Eye", lpparam.classLoader);
+
+            if (headTransform != null) {
+                XposedHelpers.findAndHookConstructor(headTransform, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
+                        SensorManager mgr = (SensorManager) ((Context) AndroidAppHelper.currentApplication()).getSystemService(Context.SENSOR_SERVICE);
+                        SensorEventListener listener = new SensorEventListener() {
+                            @Override
+                            public void onSensorChanged(SensorEvent event) {
+                                if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+                                    if (event.values != null) {
+                                        try {
+                                            Field htMatrix = XposedHelpers.findFirstFieldByExactType(headTransform, float[].class);
+                                            float[] rotationMatrix = (float[])htMatrix.get(param.thisObject);
+                                            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
+                                            htMatrix.set(param.thisObject, rotationMatrix);
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                        }
+                                    }
+                                }
+                            }
+
+                            @Override
+                            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                            }
+                        };
+                        mgr.registerListener(listener, mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR), mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR).getMinDelay());
+                        super.afterHookedMethod(param);
+                    }
+                });
+            }
+
+            if (eye != null) {
+                XposedHelpers.findAndHookConstructor(eye, int.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
+                        SensorManager mgr = (SensorManager) ((Context) AndroidAppHelper.currentApplication()).getSystemService(Context.SENSOR_SERVICE);
+
+                        Field matrixField = null;
+                        for (Field field : eye.getDeclaredFields()) {
+                                if (field.getType() == float[].class) {
+                                    field.setAccessible(true);
+
+                                    Object value = field.get(param.thisObject);
+                                    if (value != null && ((float[])value).length == 16) {
+                                        matrixField = field;
+                                        break;
+                                    }
+                                }
+                        }
+
+                        final Field finalMatrixField = matrixField;
+                        if (matrixField == null) {
+                            XposedBridge.log("VirtualSensor: Did not find the field containing the matrix, aborting hook");
+                        } else {
+                            XposedBridge.log("VirtualSensor: Found the field containing the eye matrix, name is " + matrixField.getName());
+                            SensorEventListener listener = new SensorEventListener() {
                                 @Override
                                 public void onSensorChanged(SensorEvent event) {
-
+                                    if (event.values != null) {
+                                        try {
+                                            float[] rotationMatrix = (float[])finalMatrixField.get(param.thisObject);
+                                            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
+                                            finalMatrixField.set(param.thisObject, rotationMatrix);
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                        }
+                                    }
                                 }
 
                                 @Override
                                 public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
                                 }
-                            },
-                            XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_GYROSCOPE),
-                            0,
-                            null
-                    );
-                    super.afterHookedMethod(param);
-                }
-            });
-            XposedHelpers.findAndHookMethod("com.google.vrtoolkit.cardboard.HeadTransform", lpparam.classLoader, "getHeadView", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(XposedMod.ROTATION_MATRIX);
-                    XposedBridge.log("VirtualSensor: Setting ROTATION_MATRIX as HeadTransform");
-                    super.afterHookedMethod(param);
-                }
-            });
-        } catch (Exception e) {}
-
-        /*try {
-            Class<?> eye = XposedHelpers.findClass("com.google.vrtoolkit.cardboard.Eye", lpparam.classLoader);
-            XposedHelpers.findAndHookConstructor(eye, lpparam.classLoader, new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    XposedHelpers.callMethod(param.thisObject, "registerListenerImpl",
-                            new SensorEventListener() {
-                                @Override
-                                public void onSensorChanged(SensorEvent event) {
-
-                                }
-
-                                @Override
-                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
-                                }
-                            },
-                            XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_GYROSCOPE),
-                            0,
-                            null
-                    );
-                    super.afterHookedMethod(param);
-                }
-            });
-            XposedHelpers.findAndHookMethod("com.google.vrtoolkit.cardboard.Eye", lpparam.classLoader, "getEyeView", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    param.setResult(XposedMod.ROTATION_MATRIX);
-                    super.afterHookedMethod(param);
-                }
-            });
-        } catch (Exception e) {}*/
+                            };
+                            mgr.registerListener(listener, mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR), mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR).getMinDelay());
+                        }
+                        super.afterHookedMethod(param);
+                    }
+                });
+            }
+        } catch (Exception e) {e.printStackTrace();}
     }
 
     @SuppressWarnings("unchecked")

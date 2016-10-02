@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
     private SensorEventListener accelerometerListener;
     private SensorEventListener magneticListener;
     private SensorEventListener gyroListener;
-    private SensorEventListener virtualListener;
+    private VirtualSensorListener virtualListener;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -128,7 +128,7 @@ public class MainActivity extends AppCompatActivity {
             final float accelerometerResolution = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER).getResolution();
             final float magneticResolution = sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD).getResolution();
 
-            this.virtualListener = new VirtualSensorListener(null, sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)) {
+            this.virtualListener = new VirtualSensorListener(null, null) {
                 private float[] accelerometerValues = new float[3];
                 private float[] magneticValues = new float[3];
                 private float[] prevRotationMatrix = new float[9];
@@ -168,14 +168,12 @@ public class MainActivity extends AppCompatActivity {
                     }
                 }
             };
+            this.virtualListener.isDummyGyroListener = true;
+
+
             sensorManager.registerListener(virtualListener, sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER), SensorManager.SENSOR_DELAY_UI);
             sensorManager.registerListener(virtualListener, sensorManager.getDefaultSensor(Sensor.TYPE_MAGNETIC_FIELD), SensorManager.SENSOR_DELAY_UI);
         }
-
-        TextView identicalCheck = (TextView) findViewById(R.id.identicalCheckValue);
-        if (this.theoreticalGyroscopeValuesFloat[0] == this.gyroscopeValuesFloat[0] && this.theoreticalGyroscopeValuesFloat[1] == this.gyroscopeValuesFloat[1] && this.theoreticalGyroscopeValuesFloat[2] == this.theoreticalGyroscopeValuesFloat[2]) {
-            identicalCheck.setText("true");
-        } else identicalCheck.setText("false");
     }
 
     @Override
@@ -190,8 +188,8 @@ public class MainActivity extends AppCompatActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
+        //getMenuInflater().inflate(R.menu.menu_main, menu);
+        return false;
     }
 
     @Override
@@ -199,12 +197,12 @@ public class MainActivity extends AppCompatActivity {
         // Handle action bar item clicks here. The action bar will
         // automatically handle clicks on the Home/Up button, so long
         // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
+        //int id = item.getItemId();
 
         //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
+        //if (id == R.id.action_settings) {
+        //    return true;
+        //}
 
         return super.onOptionsItemSelected(item);
     }

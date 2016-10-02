@@ -28,9 +28,9 @@ public class SensorChangeHook {
         virtualListener.sensorRef = null;
 
         // We only work when it's an accelerometer's reading. If we were to work on both events, the timeDifference for the gyro would often be 0 resulting in NaN or Infinity
-        if (s.getType() == Sensor.TYPE_ACCELEROMETER) {
+        if (s.getType() == Sensor.TYPE_ACCELEROMETER && (virtualListener.getSensor() != null || virtualListener.isDummyGyroListener)) {
 
-            if (virtualListener.getSensor().getType() == Sensor.TYPE_GYROSCOPE) {
+            if (virtualListener.isDummyGyroListener || virtualListener.getSensor().getType() == Sensor.TYPE_GYROSCOPE) {
                 float timeDifference = Math.abs((float) (timestamp - prevTimestamp) * NS2S);
                 List<Object> valuesList = getGyroscopeValues(accelerometerValues, magneticValues, prevRotationMatrix, timeDifference);
                 if (timeDifference != 0.0F) {
@@ -375,6 +375,7 @@ public class SensorChangeHook {
         float[] rotationMatrix = new float[9];
         float[] gravity = new float[]{0F, 0F, 9.81F};
         SensorManager.getRotationMatrix(rotationMatrix, null, currentAccelerometer, currentMagnetic);
+
         float[] gravityRot = new float[3];
         gravityRot[0] = gravity[0] * rotationMatrix[0] + gravity[1] * rotationMatrix[3] + gravity[2] * rotationMatrix[6];
         gravityRot[1] = gravity[0] * rotationMatrix[1] + gravity[1] * rotationMatrix[4] + gravity[2] * rotationMatrix[7];
