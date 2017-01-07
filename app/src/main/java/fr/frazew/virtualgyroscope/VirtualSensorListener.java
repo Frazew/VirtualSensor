@@ -21,12 +21,17 @@ public class VirtualSensorListener implements SensorEventListener {
     @Override
     public void onSensorChanged(SensorEvent event) {
         if (this.sensorRef != null) {
-            SensorEvent newEvent = (SensorEvent) XposedHelpers.newInstance(XposedMod.SENSOR_EVENT_CLASS, event.values.length);
-            newEvent.timestamp = event.timestamp;
-            newEvent.sensor = this.sensorRef;
-            newEvent.accuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH;
-            System.arraycopy(event.values, 0, newEvent.values, 0, event.values.length);
-            realListener.onSensorChanged(newEvent);
+            //SensorEvent newEvent = (SensorEvent) XposedHelpers.newInstance(XposedMod.SENSOR_EVENT_CLASS, event.values.length);
+            //newEvent.timestamp = event.timestamp;
+            event.sensor = this.sensorRef;
+            event.accuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH;
+            /*System.out.print("VirtualSensor (" + event.timestamp + " in VirtualSensorListener): ");
+            for (int i = 0; i < event.values.length; i++) {
+                System.out.print(event.values[i] + ":");
+            }
+            System.out.println();*/
+            System.arraycopy(event.values, 0, event.values, 0, event.values.length);
+            realListener.onSensorChanged(event);
         }
     }
 

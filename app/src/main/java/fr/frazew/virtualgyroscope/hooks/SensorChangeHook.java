@@ -1,14 +1,18 @@
 package fr.frazew.virtualgyroscope.hooks;
 
 import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
 import android.os.Build;
 import android.util.SparseArray;
+import android.util.SparseIntArray;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XC_MethodReplacement;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
@@ -279,6 +283,129 @@ public class SensorChangeHook {
     }
 
 
+    public static class API23PlusNew extends XC_MethodReplacement {
+        // Noise reduction
+        float lastFilterValues[][] = new float[3][10];
+        float prevValues[] = new float[3];
+
+        //Sensor values
+        float[] magneticValues = new float[3];
+        float[] accelerometerValues = new float[3];
+
+        //Keeping track of the previous rotation matrix and timestamp
+        float[] prevRotationMatrix = new float[9];
+        long prevTimestamp = 0;
+
+        // Stores the magnetic values read each second for the last 10 seconds (approximately, it depends on the delay of the sensors currently used)
+        float[][] oneSecondIntervalMagneticValues = new float[10][3];
+        long lastMagneticValuesIntervalRead = 0;
+        long lastMessage = 0;
+        int magneticValuesIntervalCount = 0;
+
+        @Override
+        protected Object replaceHookedMethod(XC_MethodReplacement.MethodHookParam param) throws Throwable {
+            SensorEventListener listener = (SensorEventListener)XposedHelpers.getObjectField(param.thisObject, "mListener");
+            int handle = (int) param.args[0];
+            Object mgr = XposedHelpers.getObjectField(param.thisObject, "mManager");
+            SparseArray<Sensor> sensors = (SparseArray<Sensor>) XposedHelpers.getObjectField(mgr, "mHandleToSensor");
+            Sensor s = sensors.get(handle);
+            if (listener instanceof VirtualSensorListener) { // This is our custom listener type, we can start working on the values
+
+                //All calculations need data from these two sensors, we can safely get their value every time
+                if (s.getType() == Sensor.TYPE_ACCELEROMETER) {
+                    if (Util.checkSensorResolution(this.accelerometerValues, (float[]) param.args[1], XposedMod.ACCELEROMETER_ACCURACY)) {
+                        this.accelerometerValues = ((float[]) (param.args[1])).clone();
+                    }
+                }
+                if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
+                    if (Util.checkSensorResolution(this.magneticValues, (float[]) param.args[1], XposedMod.MAGNETIC_ACCURACY)) {
+                        this.magneticValues = ((float[]) (param.args[1])).clone();
+                        if (Math.abs(lastMagneticValuesIntervalRead - (long) param.args[3]) * NS2S >= 1) {
+                            this.oneSecondIntervalMagneticValues[this.magneticValuesIntervalCount] = this.magneticValues;
+                            this.lastMagneticValuesIntervalRead = (long) param.args[3];
+                            this.magneticValuesIntervalCount++;
+                            if (this.magneticValuesIntervalCount > 9)
+                                this.magneticValuesIntervalCount = 0;
+                        }
+                    }
+                }
+
+                /*
+                    Check that the readings from the magnetic field are not too wrong. If they have been 0 or close to 0 for the last 10 seconds, we can safely assume there's a problem
+                 */
+                float lastMagneticValuesXSum = this.oneSecondIntervalMagneticValues[0][0]+this.oneSecondIntervalMagneticValues[1][0]+this.oneSecondIntervalMagneticValues[2][0]+this.oneSecondIntervalMagneticValues[3][0]+this.oneSecondIntervalMagneticValues[4][0]+this.oneSecondIntervalMagneticValues[5][0]+this.oneSecondIntervalMagneticValues[6][0]+this.oneSecondIntervalMagneticValues[7][0]+this.oneSecondIntervalMagneticValues[8][0]+this.oneSecondIntervalMagneticValues[9][0];
+                float lastMagneticValuesYSum = this.oneSecondIntervalMagneticValues[0][1]+this.oneSecondIntervalMagneticValues[1][1]+this.oneSecondIntervalMagneticValues[2][1]+this.oneSecondIntervalMagneticValues[3][1]+this.oneSecondIntervalMagneticValues[4][1]+this.oneSecondIntervalMagneticValues[5][1]+this.oneSecondIntervalMagneticValues[6][1]+this.oneSecondIntervalMagneticValues[7][1]+this.oneSecondIntervalMagneticValues[8][1]+this.oneSecondIntervalMagneticValues[9][1];
+                float lastMagneticValuesZSum = this.oneSecondIntervalMagneticValues[0][1]+this.oneSecondIntervalMagneticValues[1][2]+this.oneSecondIntervalMagneticValues[2][2]+this.oneSecondIntervalMagneticValues[3][2]+this.oneSecondIntervalMagneticValues[4][2]+this.oneSecondIntervalMagneticValues[5][2]+this.oneSecondIntervalMagneticValues[6][2]+this.oneSecondIntervalMagneticValues[7][2]+this.oneSecondIntervalMagneticValues[8][2]+this.oneSecondIntervalMagneticValues[9][2];
+
+                if ((Math.abs(lastMagneticValuesXSum/10) == 0.0F || Math.abs(lastMagneticValuesYSum/10) == 0.01F || Math.abs(lastMagneticValuesZSum/10) == 0.01F) && Math.abs(lastMessage - (long) param.args[3]) * NS2S >= 10 && lastMessage != 0) {
+                    XposedBridge.log("VirtualSensor: Magnetic values are likely to be wrong, if this message seems to appear often, it is likely that there is a problem");
+                    this.lastMessage = (long) param.args[3];
+                }
+
+                List<Object> list = changeSensorValues(s, this.accelerometerValues, this.magneticValues, listener, this.prevRotationMatrix, (long) param.args[3], this.prevTimestamp, this.prevValues, this.lastFilterValues, sensors);
+                SensorEvent t = null;
+                SparseArray<SensorEvent> mSensorsEvents = (SparseArray<SensorEvent>)XposedHelpers.getObjectField(param.thisObject, "mSensorsEvents");
+                synchronized (mSensorsEvents) {
+                    if ((System.currentTimeMillis() % 10000) < 5000) {
+                        for (int i = 0; i < mSensorsEvents.size(); i++) {
+                            XposedBridge.log("VirtualSensor: " + sensors.get(mSensorsEvents.keyAt(i)).getStringType());
+                        }
+                    }
+                    t = mSensorsEvents.get(XposedMod.sensorTypetoHandle.get(((VirtualSensorListener) listener).getSensor().getType()));
+                }
+                if (t == null) {
+                    return null;
+                }
+
+                System.arraycopy((float[])list.get(0), 0, t.values, 0, Math.min(t.values.length,((float[])list.get(0)).length));
+                t.timestamp = (long)param.args[3];
+                t.accuracy = (int)param.args[2];
+                t.sensor = ((VirtualSensorListener) listener).getSensor();
+
+                listener.onSensorChanged(t);
+
+                /*System.out.print("VirtualSensor (" + (long)param.args[3] + " in SensorChangeHook " + s.getStringType() + "): ");
+                System.out.print(((VirtualSensorListener) listener).getSensor().getStringType());
+                for (int i = 0; i < ((float[])param.args[1]).length; i++) {
+                    System.out.print(((float[])param.args[1])[i] + ":");
+                }
+                System.out.println();*/
+
+                this.prevTimestamp = (long)list.get(1);
+                this.prevRotationMatrix = (float[])list.get(2);
+                this.prevValues = (float[])list.get(3);
+                this.lastFilterValues = (float[][])list.get(4);
+            } else { //TODO Better way to call the original function than copy it here ?
+                SensorEvent t = null;
+                SparseArray<SensorEvent> mSensorsEvents = (SparseArray<SensorEvent>)XposedHelpers.getObjectField(param.thisObject, "mSensorsEvents");
+                synchronized (mSensorsEvents) {
+                    t = mSensorsEvents.get(handle);
+                }
+
+                if (t == null) {
+                    // This may happen if the client has unregistered and there are pending events in
+                    // the queue waiting to be delivered. Ignore.
+                    return null;
+                }
+                // Copy from the values array.
+                System.arraycopy(param.args[1], 0, t.values, 0, t.values.length);
+                t.timestamp = (long)param.args[3];
+                t.accuracy = (int)param.args[2];
+                t.sensor = s;
+
+                SparseIntArray mSensorAccuracies = (SparseIntArray)XposedHelpers.getObjectField(param.thisObject, "mSensorAccuracies");
+                // call onAccuracyChanged() only if the value changes
+                final int accuracy = mSensorAccuracies.get(handle);
+                if ((t.accuracy >= 0) && (accuracy != t.accuracy)) {
+                    mSensorAccuracies.put(handle, t.accuracy);
+                    listener.onAccuracyChanged(t.sensor, t.accuracy);
+                }
+                listener.onSensorChanged(t);
+            }
+
+            return null;
+        }
+    }
     @SuppressWarnings("unchecked")
     public static class API23Plus extends XC_MethodHook {
         // Noise reduction
@@ -349,13 +476,16 @@ public class SensorChangeHook {
 
                 List<Object> list = changeSensorValues(s, this.accelerometerValues, this.magneticValues, listener, this.prevRotationMatrix, (long) param.args[3], this.prevTimestamp, this.prevValues, this.lastFilterValues, sensors);
 
+                param.args[1] = new float[((float[])list.get(0)).length];
                 // Just making sure nothing goes wrong with the values returned by the rotation vector for example
-                if (((float[])param.args[1]).length == 3) {
-                    System.arraycopy((float[])list.get(0), 0, (float[])param.args[1], 0, ((float[])param.args[1]).length);
+                System.arraycopy((float[])list.get(0), 0, (float[])param.args[1], 0, ((float[])param.args[1]).length);
+
+                /*System.out.print("VirtualSensor (" + (long)param.args[3] + " in SensorChangeHook " + s.getStringType() + "): ");
+                System.out.print(((VirtualSensorListener) listener).getSensor().getStringType());
+                for (int i = 0; i < ((float[])param.args[1]).length; i++) {
+                    System.out.print(((float[])param.args[1])[i] + ":");
                 }
-                else {
-                    System.arraycopy((float[])list.get(0), 0, (float[])param.args[1], 0, ((float[])list.get(0)).length);
-                }
+                System.out.println();*/
 
                 this.prevTimestamp = (long)list.get(1);
                 this.prevRotationMatrix = (float[])list.get(2);

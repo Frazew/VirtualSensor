@@ -8,8 +8,11 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
+import android.opengl.Matrix;
 import android.os.Build;
+import android.os.Handler;
 import android.util.SparseArray;
+import android.util.SparseBooleanArray;
 import android.util.SparseIntArray;
 
 import de.robv.android.xposed.XposedBridge;
@@ -20,6 +23,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
@@ -71,6 +75,7 @@ public class XposedMod implements IXposedHookLoadPackage {
         addSensors(lpparam);
         hookCarboard(lpparam);
 
+        //TODO Remove this ? Not useful and won't ever be now
         // Simple Pokémon GO hook, trying to understand why it doesn't understand the values from the virtual sensors.
         if(lpparam.packageName.contains("nianticlabs.pokemongo")) {
             Class<?> sensorMgrNiantic = XposedHelpers.findClass("com.nianticlabs.nia.sensors.NianticSensorManager", lpparam.classLoader);
@@ -107,7 +112,8 @@ public class XposedMod implements IXposedHookLoadPackage {
                                             Field htMatrix = XposedHelpers.findFirstFieldByExactType(headTransform, float[].class);
                                             float[] rotationMatrix = (float[])htMatrix.get(param.thisObject);
                                             SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
-                                            htMatrix.set(param.thisObject, rotationMatrix);
+
+                                            XposedHelpers.setObjectField(param.thisObject, htMatrix.getName(), rotationMatrix);
                                         } catch (Exception e) {
                                             e.printStackTrace();
                                         }
@@ -154,9 +160,9 @@ public class XposedMod implements IXposedHookLoadPackage {
                                 public void onSensorChanged(SensorEvent event) {
                                     if (event.values != null) {
                                         try {
-                                            float[] rotationMatrix = (float[])finalMatrixField.get(param.thisObject);
+                                            float[] rotationMatrix = new float[16];
                                             SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
-                                            finalMatrixField.set(param.thisObject, rotationMatrix);
+                                            XposedHelpers.setObjectField(param.thisObject, finalMatrixField.getName(), rotationMatrix);
                                         } catch (Exception e) {
                                             e.printStackTrace();
                                         }
@@ -240,7 +246,7 @@ public class XposedMod implements IXposedHookLoadPackage {
 
     private void hookSensorValues(final LoadPackageParam lpparam) {
         if (Build.VERSION.SDK_INT >= 18) {
-            if (Build.VERSION.SDK_INT >= 23) XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue", lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class, new SensorChangeHook.API23Plus(lpparam));
+            if (Build.VERSION.SDK_INT >= 23) XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue", lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class, new SensorChangeHook.API23PlusNew());
             else XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue", lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class, new SensorChangeHook.API18Plus(lpparam));
         } else {
             XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$ListenerDelegate", lpparam.classLoader, "onSensorChangedLocked", Sensor.class, float[].class, long[].class, int.class, new SensorChangeHook.API1617(lpparam));
@@ -284,6 +290,18 @@ public class XposedMod implements IXposedHookLoadPackage {
                 }
             });
         } else {
+
+            //TODO Check how this behaves on SDK<23
+            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$BaseEventQueue", lpparam.classLoader, "enableSensor", android.hardware.Sensor.class, int.class, int.class, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    if (sensorsToEmulate.indexOfKey(((Sensor) param.args[0]).getType()) >= 0 && !sensorsToEmulate.get(((Sensor) param.args[0]).getType()).isAlreadyNative) {
+                        param.setResult(0);
+                    }
+                    super.afterHookedMethod(param);
+                }
+            });
+
             XposedHelpers.findAndHookMethod("android.hardware.SensorManager", lpparam.classLoader, "registerListener", android.hardware.SensorEventListener.class, android.hardware.Sensor.class, int.class, int.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
