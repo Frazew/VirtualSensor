@@ -8,35 +8,29 @@ import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.opengl.Matrix;
 import android.os.Build;
-import android.os.Handler;
 import android.util.SparseArray;
-import android.util.SparseBooleanArray;
 import android.util.SparseIntArray;
 
-import de.robv.android.xposed.XposedBridge;
-
 import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Random;
 
 import de.robv.android.xposed.IXposedHookLoadPackage;
 import de.robv.android.xposed.XC_MethodHook;
+import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
-import fr.frazew.virtualgyroscope.hooks.SensorChangeHook;
 import fr.frazew.virtualgyroscope.hooks.SystemSensorManagerHook;
+import fr.frazew.virtualgyroscope.hooks.sensorchange.API16;
+import fr.frazew.virtualgyroscope.hooks.sensorchange.API18;
+import fr.frazew.virtualgyroscope.hooks.sensorchange.API23;
 
 public class XposedMod implements IXposedHookLoadPackage {
     public static boolean FIRST_LAUNCH_SINCE_BOOT = true;
 
-    public static Class<?> SENSOR_EVENT_CLASS;
-    public static float[] ROTATION_MATRIX = new float[16]; // @TODO Change this to a better way
     public static float MAGNETIC_ACCURACY; // @TODO Change this too
     public static float ACCELEROMETER_ACCURACY; // @TODO And this
 
@@ -64,204 +58,55 @@ public class XposedMod implements IXposedHookLoadPackage {
                 XposedBridge.log("VirtualSensor: Using version " + BuildConfig.VERSION_NAME);
             }
 
-            hookPackageFeatures(lpparam);
+            hookPackageFeatures(lpparam); // @TODO Revisit this hook to make it more flexible
+            hookSensorValues(lpparam);
+            addSensors(lpparam);
+            registerListenerHook(lpparam);
         }
-        if (SENSOR_EVENT_CLASS == null) {
-            try {
-                SENSOR_EVENT_CLASS = XposedHelpers.findClass("android.hardware.SensorEvent", lpparam.classLoader);
-            } catch (Exception e) { SENSOR_EVENT_CLASS = null; }
-        }
-        hookSensorValues(lpparam);
-        addSensors(lpparam);
-        hookCarboard(lpparam);
 
-        //TODO Remove this ? Not useful and won't ever be now
-        // Simple Pokémon GO hook, trying to understand why it doesn't understand the values from the virtual sensors.
-        if(lpparam.packageName.contains("nianticlabs.pokemongo")) {
-            Class<?> sensorMgrNiantic = XposedHelpers.findClass("com.nianticlabs.nia.sensors.NianticSensorManager", lpparam.classLoader);
-            XposedBridge.hookAllMethods(sensorMgrNiantic, "onSensorChanged", new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    //XposedBridge.log("VirtualSensor: Pokémon GO onSensorChanged with sensor type " + (android.os.Build.VERSION.SDK_INT >= 20 ? ((SensorEvent) (param.args[0])).sensor.getStringType() : ((SensorEvent) (param.args[0])).sensor.getType()));
-                    if (((SensorEvent) (param.args[0])).sensor.getType() == Sensor.TYPE_GYROSCOPE) {
-                        float[] values = ((SensorEvent) (param.args[0])).values;
-                        //XposedBridge.log("VirtualSensor: Pokémon GO gyroscope values are x=" + values[0] + ",y=" + values[1] + ",z=" + values[2]);
-                    }
-                }
-            });
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private void hookCarboard(final LoadPackageParam lpparam) {
-        try {
-            final Class headTransform = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.HeadTransform", lpparam.classLoader);
-            final Class eye = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.Eye", lpparam.classLoader);
-
-            if (headTransform != null) {
-                XposedHelpers.findAndHookConstructor(headTransform, new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
-                        SensorManager mgr = (SensorManager) ((Context) AndroidAppHelper.currentApplication()).getSystemService(Context.SENSOR_SERVICE);
-                        SensorEventListener listener = new SensorEventListener() {
-                            @Override
-                            public void onSensorChanged(SensorEvent event) {
-                                if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
-                                    if (event.values != null) {
-                                        try {
-                                            Field htMatrix = XposedHelpers.findFirstFieldByExactType(headTransform, float[].class);
-                                            float[] rotationMatrix = (float[])htMatrix.get(param.thisObject);
-                                            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
-
-                                            XposedHelpers.setObjectField(param.thisObject, htMatrix.getName(), rotationMatrix);
-                                        } catch (Exception e) {
-                                            e.printStackTrace();
-                                        }
-                                    }
-                                }
-                            }
-
-                            @Override
-                            public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                            }
-                        };
-                        mgr.registerListener(listener, mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR), mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR).getMinDelay());
-                        super.afterHookedMethod(param);
-                    }
-                });
-            }
-
-            if (eye != null) {
-                XposedHelpers.findAndHookConstructor(eye, int.class, new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
-                        SensorManager mgr = (SensorManager) ((Context) AndroidAppHelper.currentApplication()).getSystemService(Context.SENSOR_SERVICE);
-
-                        Field matrixField = null;
-                        for (Field field : eye.getDeclaredFields()) {
-                                if (field.getType() == float[].class) {
-                                    field.setAccessible(true);
-
-                                    Object value = field.get(param.thisObject);
-                                    if (value != null && ((float[])value).length == 16) {
-                                        matrixField = field;
-                                        break;
-                                    }
-                                }
-                        }
-
-                        final Field finalMatrixField = matrixField;
-                        if (matrixField == null) {
-                            XposedBridge.log("VirtualSensor: Did not find the field containing the matrix, aborting hook");
-                        } else {
-                            XposedBridge.log("VirtualSensor: Found the field containing the eye matrix, name is " + matrixField.getName());
-                            SensorEventListener listener = new SensorEventListener() {
-                                @Override
-                                public void onSensorChanged(SensorEvent event) {
-                                    if (event.values != null) {
-                                        try {
-                                            float[] rotationMatrix = new float[16];
-                                            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
-                                            XposedHelpers.setObjectField(param.thisObject, finalMatrixField.getName(), rotationMatrix);
-                                        } catch (Exception e) {
-                                            e.printStackTrace();
-                                        }
-                                    }
-                                }
-
-                                @Override
-                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                                }
-                            };
-                            mgr.registerListener(listener, mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR), mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR).getMinDelay());
-                        }
-                        super.afterHookedMethod(param);
-                    }
-                });
-            }
-        } catch (Exception e) {e.printStackTrace();}
-    }
-
-    @SuppressWarnings("unchecked")
-    private void hookPackageFeatures(final LoadPackageParam lpparam) {
-        if (Build.VERSION.SDK_INT >= 21) {
-            Class<?> pkgMgrSrv = XposedHelpers.findClass("com.android.server.SystemConfig", lpparam.classLoader);
-            XposedBridge.hookAllMethods(pkgMgrSrv, "getAvailableFeatures", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    Map<String, FeatureInfo> mAvailableFeatures = (Map<String, FeatureInfo>) param.getResult();
-                    int openGLEsVersion = (int) XposedHelpers.callStaticMethod(XposedHelpers.findClass("android.os.SystemProperties", lpparam.classLoader), "getInt", "ro.opengles.version", FeatureInfo.GL_ES_VERSION_UNDEFINED);
-                    if (!mAvailableFeatures.containsKey(PackageManager.FEATURE_SENSOR_GYROSCOPE)) {
-                        FeatureInfo gyro = new FeatureInfo();
-                        gyro.name = PackageManager.FEATURE_SENSOR_GYROSCOPE;
-                        gyro.reqGlEsVersion = openGLEsVersion;
-                        mAvailableFeatures.put(PackageManager.FEATURE_SENSOR_GYROSCOPE, gyro);
-                    }
-                    XposedHelpers.setObjectField(param.thisObject, "mAvailableFeatures", mAvailableFeatures);
-                    param.setResult(mAvailableFeatures);
-                }
-            });
-        } else {
-            Class<?> pkgMgrSrv = XposedHelpers.findClass("com.android.server.pm.PackageManagerService", lpparam.classLoader);
-            XposedBridge.hookAllMethods(pkgMgrSrv, "getSystemAvailableFeatures", new XC_MethodHook() {
-                @Override
-                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
-                    if (param.getResult() != null) {
-                        Object mPackages = XposedHelpers.getObjectField(param.thisObject, "mPackages");
-                        synchronized (mPackages) {
-                            Map<String, FeatureInfo> mAvailableFeatures = (Map<String, FeatureInfo>) XposedHelpers.getObjectField(param.thisObject, "mAvailableFeatures");
-                            int openGLEsVersion = (int) XposedHelpers.callStaticMethod(XposedHelpers.findClass("android.os.SystemProperties", lpparam.classLoader), "getInt", "ro.opengles.version", FeatureInfo.GL_ES_VERSION_UNDEFINED);
-                            if (!mAvailableFeatures.containsKey(PackageManager.FEATURE_SENSOR_GYROSCOPE)) {
-                                FeatureInfo gyro = new FeatureInfo();
-                                gyro.name = PackageManager.FEATURE_SENSOR_GYROSCOPE;
-                                gyro.reqGlEsVersion = openGLEsVersion;
-                                mAvailableFeatures.put(PackageManager.FEATURE_SENSOR_GYROSCOPE, gyro);
-                            }
-                            XposedHelpers.setObjectField(param.thisObject, "mAvailableFeatures", mAvailableFeatures);
-                        }
-                    }
-                }
-            });
-
-            XposedBridge.hookAllMethods(pkgMgrSrv, "hasSystemFeature", new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    if (!(boolean) param.getResult() && (String) param.args[0] == PackageManager.FEATURE_SENSOR_GYROSCOPE) {
-                        Object mPackages = XposedHelpers.getObjectField(param.thisObject, "mPackages");
-                        synchronized (mPackages) {
-                            Map<String, FeatureInfo> mAvailableFeatures = (Map<String, FeatureInfo>) param.getResult();
-                            int openGLEsVersion = (int) XposedHelpers.callStaticMethod(XposedHelpers.findClass("android.os.SystemProperties", lpparam.classLoader), "getInt", "ro.opengles.version", FeatureInfo.GL_ES_VERSION_UNDEFINED);
-                            FeatureInfo gyro = new FeatureInfo();
-                            gyro.name = PackageManager.FEATURE_SENSOR_GYROSCOPE;
-                            gyro.reqGlEsVersion = openGLEsVersion;
-                            mAvailableFeatures.put(PackageManager.FEATURE_SENSOR_GYROSCOPE, gyro);
-                            XposedHelpers.setObjectField(param.thisObject, "mAvailableFeatures", mAvailableFeatures);
-                            param.setResult(true);
-                        }
-                    }
-                }
-            });
-        }
+        hookCardboard(lpparam);
     }
 
     private void hookSensorValues(final LoadPackageParam lpparam) {
-        if (Build.VERSION.SDK_INT >= 18) {
-            if (Build.VERSION.SDK_INT >= 23) XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue", lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class, new SensorChangeHook.API23PlusNew());
-            else XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue", lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class, new SensorChangeHook.API18Plus(lpparam));
-        } else {
-            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$ListenerDelegate", lpparam.classLoader, "onSensorChangedLocked", Sensor.class, float[].class, long[].class, int.class, new SensorChangeHook.API1617(lpparam));
-        }
+        XposedBridge.log("VirtualSensor: Hooking the sensor event handler");
+
+        if (Build.VERSION.SDK_INT >= 23)
+            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue",
+                    lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class,
+                    new API23());
+        else if (Build.VERSION.SDK_INT >= 18)
+            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue",
+                    lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class,
+                    new API18(lpparam));
+        else if (Build.VERSION.SDK_INT >= 16)
+            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$ListenerDelegate",
+                    lpparam.classLoader, "onSensorChangedLocked", Sensor.class, float[].class, long[].class, int.class,
+                    new API16(lpparam));
+        else XposedBridge.log("VirtualSensor: Using SDK version " + Build.VERSION.SDK_INT + ", this is not supported");
     }
 
     @SuppressWarnings("unchecked")
     private void addSensors(final LoadPackageParam lpparam) {
+        XposedBridge.log("VirtualSensor: Adding the virtual sensors");
 
-        // SystemSensorManager constructor hook, starting from SDK16
-        if (Build.VERSION.SDK_INT == 16 || Build.VERSION.SDK_INT == 17) XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager", lpparam.classLoader, android.os.Looper.class, new SystemSensorManagerHook.API1617(lpparam));
-        else if (Build.VERSION.SDK_INT > 17 && Build.VERSION.SDK_INT < 23) XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager", lpparam.classLoader, android.content.Context.class, android.os.Looper.class, new SystemSensorManagerHook.API18Plus(lpparam));
-        else XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager", lpparam.classLoader, android.content.Context.class, android.os.Looper.class, new SystemSensorManagerHook.API23Plus(lpparam));
+        if (Build.VERSION.SDK_INT >= 23)
+            XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager",
+                    lpparam.classLoader, android.content.Context.class, android.os.Looper.class,
+                    new SystemSensorManagerHook.API23Plus(lpparam));
+        else if (Build.VERSION.SDK_INT >= 18)
+            XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager",
+                    lpparam.classLoader, android.content.Context.class, android.os.Looper.class,
+                    new SystemSensorManagerHook.API18Plus(lpparam));
+        else if (Build.VERSION.SDK_INT >= 16)
+            XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager",
+                    lpparam.classLoader, android.os.Looper.class,
+                    new SystemSensorManagerHook.API1617(lpparam));
+        else XposedBridge.log("VirtualSensor: Using SDK version " + Build.VERSION.SDK_INT + ", this is not supported");
+    }
 
-        // registerListenerImpl hook
+    private void registerListenerHook(final LoadPackageParam lpparam) {
+        XposedBridge.log("VirtualSensor: Hooking the registerListener functions");
+
         if (Build.VERSION.SDK_INT <= 18) {
             XposedHelpers.findAndHookMethod("android.hardware.SensorManager", lpparam.classLoader, "registerListener", android.hardware.SensorEventListener.class, android.hardware.Sensor.class, int.class, android.os.Handler.class, new XC_MethodHook() {
                 @Override
@@ -276,13 +121,13 @@ public class XposedMod implements IXposedHookLoadPackage {
                                 specialListener,
                                 XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_ACCELEROMETER),
                                 param.args[2],
-                                (android.os.Handler) param.args[3]
+                                param.args[3]
                         );
                         XposedHelpers.callMethod(param.thisObject, "registerListener",
                                 specialListener,
                                 XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD),
                                 param.args[2],
-                                (android.os.Handler) param.args[3]
+                                param.args[3]
                         );
 
                         param.args[0] = specialListener;
@@ -346,7 +191,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                                 specialListener,
                                 XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_ACCELEROMETER),
                                 XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
-                                (android.os.Handler)param.args[3],
+                                param.args[3],
                                 0,
                                 0
                         );
@@ -354,7 +199,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                                 specialListener,
                                 XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD),
                                 XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
-                                (android.os.Handler)param.args[3],
+                                param.args[3],
                                 0,
                                 0
                         );
@@ -377,7 +222,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                                 specialListener,
                                 XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_ACCELEROMETER),
                                 XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
-                                (android.os.Handler)param.args[4],
+                                param.args[4],
                                 param.args[3],
                                 0
                         );
@@ -385,7 +230,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                                 specialListener,
                                 XposedHelpers.callMethod(param.thisObject, "getDefaultSensor", Sensor.TYPE_MAGNETIC_FIELD),
                                 XposedHelpers.callStaticMethod(android.hardware.SensorManager.class, "getDelay", param.args[2]),
-                                (android.os.Handler)param.args[4],
+                                param.args[4],
                                 param.args[3],
                                 0
                         );
@@ -406,16 +251,168 @@ public class XposedMod implements IXposedHookLoadPackage {
 
                     if (listener instanceof VirtualSensorListener) {
                         VirtualSensorListener specialListener = (VirtualSensorListener) listener;
-                        if (specialListener.getRealListener() == (android.hardware.SensorEventListener) param.args[0]) {
+                        if (specialListener.getRealListener() == param.args[0]) {
                             listenersToRemove.add(listener);
                         }
                     }
                 }
 
                 for (SensorEventListener listener : listenersToRemove) {
-                    XposedHelpers.callMethod(param.thisObject, "unregisterListenerImpl", listener, (Sensor) null);
+                    XposedHelpers.callMethod(param.thisObject, "unregisterListenerImpl", listener, null);
                 }
             }
         });
+    }
+
+    @SuppressWarnings("unchecked")
+    private void hookPackageFeatures(final LoadPackageParam lpparam) {
+        if (Build.VERSION.SDK_INT >= 21) {
+            Class<?> pkgMgrSrv = XposedHelpers.findClass("com.android.server.SystemConfig", lpparam.classLoader);
+            XposedBridge.hookAllMethods(pkgMgrSrv, "getAvailableFeatures", new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    Map<String, FeatureInfo> mAvailableFeatures = (Map<String, FeatureInfo>) param.getResult();
+                    int openGLEsVersion = (int) XposedHelpers.callStaticMethod(XposedHelpers.findClass("android.os.SystemProperties", lpparam.classLoader), "getInt", "ro.opengles.version", FeatureInfo.GL_ES_VERSION_UNDEFINED);
+                    if (!mAvailableFeatures.containsKey(PackageManager.FEATURE_SENSOR_GYROSCOPE)) {
+                        FeatureInfo gyro = new FeatureInfo();
+                        gyro.name = PackageManager.FEATURE_SENSOR_GYROSCOPE;
+                        gyro.reqGlEsVersion = openGLEsVersion;
+                        mAvailableFeatures.put(PackageManager.FEATURE_SENSOR_GYROSCOPE, gyro);
+                    }
+                    XposedHelpers.setObjectField(param.thisObject, "mAvailableFeatures", mAvailableFeatures);
+                    param.setResult(mAvailableFeatures);
+                }
+            });
+        } else {
+            Class<?> pkgMgrSrv = XposedHelpers.findClass("com.android.server.pm.PackageManagerService", lpparam.classLoader);
+            XposedBridge.hookAllMethods(pkgMgrSrv, "getSystemAvailableFeatures", new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) throws Throwable {
+                    if (param.getResult() != null) {
+                        Object mPackages = XposedHelpers.getObjectField(param.thisObject, "mPackages");
+                        synchronized (mPackages) {
+                            Map<String, FeatureInfo> mAvailableFeatures = (Map<String, FeatureInfo>) XposedHelpers.getObjectField(param.thisObject, "mAvailableFeatures");
+                            int openGLEsVersion = (int) XposedHelpers.callStaticMethod(XposedHelpers.findClass("android.os.SystemProperties", lpparam.classLoader), "getInt", "ro.opengles.version", FeatureInfo.GL_ES_VERSION_UNDEFINED);
+                            if (!mAvailableFeatures.containsKey(PackageManager.FEATURE_SENSOR_GYROSCOPE)) {
+                                FeatureInfo gyro = new FeatureInfo();
+                                gyro.name = PackageManager.FEATURE_SENSOR_GYROSCOPE;
+                                gyro.reqGlEsVersion = openGLEsVersion;
+                                mAvailableFeatures.put(PackageManager.FEATURE_SENSOR_GYROSCOPE, gyro);
+                            }
+                            XposedHelpers.setObjectField(param.thisObject, "mAvailableFeatures", mAvailableFeatures);
+                        }
+                    }
+                }
+            });
+
+            XposedBridge.hookAllMethods(pkgMgrSrv, "hasSystemFeature", new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    if (!(boolean) param.getResult() && param.args[0] == PackageManager.FEATURE_SENSOR_GYROSCOPE) {
+                        Object mPackages = XposedHelpers.getObjectField(param.thisObject, "mPackages");
+                        synchronized (mPackages) {
+                            Map<String, FeatureInfo> mAvailableFeatures = (Map<String, FeatureInfo>) param.getResult();
+                            int openGLEsVersion = (int) XposedHelpers.callStaticMethod(XposedHelpers.findClass("android.os.SystemProperties", lpparam.classLoader), "getInt", "ro.opengles.version", FeatureInfo.GL_ES_VERSION_UNDEFINED);
+                            FeatureInfo gyro = new FeatureInfo();
+                            gyro.name = PackageManager.FEATURE_SENSOR_GYROSCOPE;
+                            gyro.reqGlEsVersion = openGLEsVersion;
+                            mAvailableFeatures.put(PackageManager.FEATURE_SENSOR_GYROSCOPE, gyro);
+                            XposedHelpers.setObjectField(param.thisObject, "mAvailableFeatures", mAvailableFeatures);
+                            param.setResult(true);
+                        }
+                    }
+                }
+            });
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private void hookCardboard(final LoadPackageParam lpparam) {
+        try {
+            final Class headTransform = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.HeadTransform", lpparam.classLoader);
+            final Class eye = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.Eye", lpparam.classLoader);
+
+            if (headTransform != null) {
+                XposedHelpers.findAndHookConstructor(headTransform, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
+                        SensorManager mgr = (SensorManager) AndroidAppHelper.currentApplication().getSystemService(Context.SENSOR_SERVICE);
+                        SensorEventListener listener = new SensorEventListener() {
+                            @Override
+                            public void onSensorChanged(SensorEvent event) {
+                                if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+                                    if (event.values != null) {
+                                        try {
+                                            Field htMatrix = XposedHelpers.findFirstFieldByExactType(headTransform, float[].class);
+                                            float[] rotationMatrix = (float[])htMatrix.get(param.thisObject);
+                                            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
+
+                                            XposedHelpers.setObjectField(param.thisObject, htMatrix.getName(), rotationMatrix);
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                        }
+                                    }
+                                }
+                            }
+
+                            @Override
+                            public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                            }
+                        };
+                        mgr.registerListener(listener, mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR), mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR).getMinDelay());
+                        super.afterHookedMethod(param);
+                    }
+                });
+            }
+
+            if (eye != null) {
+                XposedHelpers.findAndHookConstructor(eye, int.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
+                        SensorManager mgr = (SensorManager) AndroidAppHelper.currentApplication().getSystemService(Context.SENSOR_SERVICE);
+
+                        Field matrixField = null;
+                        for (Field field : eye.getDeclaredFields()) {
+                                if (field.getType() == float[].class) {
+                                    field.setAccessible(true);
+
+                                    Object value = field.get(param.thisObject);
+                                    if (value != null && ((float[])value).length == 16) {
+                                        matrixField = field;
+                                        break;
+                                    }
+                                }
+                        }
+
+                        final Field finalMatrixField = matrixField;
+                        if (matrixField == null) {
+                            XposedBridge.log("VirtualSensor: Did not find the field containing the matrix, aborting hook");
+                        } else {
+                            XposedBridge.log("VirtualSensor: Found the field containing the eye matrix, name is " + matrixField.getName());
+                            SensorEventListener listener = new SensorEventListener() {
+                                @Override
+                                public void onSensorChanged(SensorEvent event) {
+                                    if (event.values != null) {
+                                        try {
+                                            float[] rotationMatrix = new float[16];
+                                            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
+                                            XposedHelpers.setObjectField(param.thisObject, finalMatrixField.getName(), rotationMatrix);
+                                        } catch (Exception e) {
+                                            e.printStackTrace();
+                                        }
+                                    }
+                                }
+
+                                @Override
+                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
+                                }
+                            };
+                            mgr.registerListener(listener, mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR), mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR).getMinDelay());
+                        }
+                        super.afterHookedMethod(param);
+                    }
+                });
+            }
+        } catch (Exception e) {e.printStackTrace();}
     }
 }
