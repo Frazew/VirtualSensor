@@ -1,12 +1,22 @@
 # VirtualSensor
-VirtualSensor is an Xposed module that aims at creating a virtual gyroscope in Android. It does so by using values from both the accelerometer and the compass thus deducing the angular rate on the 3 axis.
+VirtualSensor is a module built on Xposed that creates several sensors on devices which do not have them. It does sensor fusion using the values from the accelerometer and the compass which are the two *si nequa non* requirements for this module.
+
+There are currently 5 sensors emulated :
+* TYPE_ROTATION_VECTOR
+* TYPE_GYROSCOPE
+* TYPE_GEOMAGNETIC_ROTATION_VECTOR
+* TYPE_GRAVITY
+* TYPE_LINEAR_ACCELERATION
+
+Being the most useful sensor for many applications, the gyroscope is main sensor this project is about.
 
 ## How to use
-It's pretty straightforward, you basically just install the module and activate it. Once it's there, it just does its job. There is no (yet?) further configuration to be done.
+The Xposed Framework is a required dependency. Android versions from JellyBean (SDK16) up to Marshmallow (SDK23) are supported. I myself have not tested the module on versions older that Marshmallow.
+Some OEMs might have made heavy enough modification to the AOSP code to break this module, please keep that in mind.
 
 ## Bug report
-I only tested this on my device, which is a Moto G 2015 (osprey) running CM13 so if it doesn't work for you, I'd be glad to help and fix it.
-However, if you want to help by reporting bugs, please know that without a logcat, it is generally quite hard to understand what's going on.
+Reporting bugs is very important in order for this module to work on more devices. As I do not have the ability to test it on a lot of devices, I can only rely on the community to test it and report bugs.
+When submitting a bug report, please make sure to include as much information as possible. A logcat dump is often mandatory.
 
 ## License
-Please see the file LICENSE for more details. VirtualSensor is basically under the LGPL license.
+This project is under the LGPL v.3.0 license. The license itself can be found in the LICENSE file within the project files.

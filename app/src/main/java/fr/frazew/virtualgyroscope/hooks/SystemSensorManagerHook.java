@@ -9,8 +9,6 @@ import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import fr.frazew.virtualgyroscope.BuildConfig;
@@ -18,8 +16,13 @@ import fr.frazew.virtualgyroscope.SensorModel;
 import fr.frazew.virtualgyroscope.XposedMod;
 
 public class SystemSensorManagerHook {
+    public static Class SYSTEM_SENSOR_MANAGER;
 
-    public static List<Object> fillSensorLists(ArrayList<Sensor> fullSensorList, SparseArray<Sensor> handleToSensor, XC_LoadPackage.LoadPackageParam lpparam) throws IllegalAccessException, InstantiationException, InvocationTargetException {
+    public SystemSensorManagerHook(XC_LoadPackage.LoadPackageParam lpparam) {
+        SYSTEM_SENSOR_MANAGER = XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader);
+    }
+
+    public void fillSensorLists(ArrayList<Sensor> fullSensorList, SparseArray<Sensor> handleToSensor) throws IllegalAccessException, InstantiationException, InvocationTargetException {
         Iterator<Sensor> iterator = fullSensorList.iterator();
 
         int minDelayAccelerometer = 0;
@@ -72,94 +75,6 @@ public class SystemSensorManagerHook {
                 fullSensorList.add(s);
                 handleToSensor.put(model.handle, s);
             }
-        }
-
-        List<Object> list = new ArrayList<>();
-        list.add(fullSensorList);
-        list.add(handleToSensor);
-        return list;
-    }
-
-    @SuppressWarnings("unchecked")
-    public static class API1617 extends XC_MethodHook {
-        private XC_LoadPackage.LoadPackageParam lpparam;
-
-        public API1617(XC_LoadPackage.LoadPackageParam lpparam) {
-            this.lpparam = lpparam;
-        }
-
-        @Override
-        protected void afterHookedMethod(XC_MethodHook.MethodHookParam param) throws Throwable {
-            super.afterHookedMethod(param);
-            ArrayList sListeners = (ArrayList) XposedHelpers.getStaticObjectField(param.thisObject.getClass(), "sListeners");
-
-            synchronized (sListeners) {
-                ArrayList<Sensor> sFullSensorsList = (ArrayList<Sensor>) XposedHelpers.getStaticObjectField(param.thisObject.getClass(), "sFullSensorsList");
-                SparseArray<Sensor> sHandleToSensor = (SparseArray<Sensor>) XposedHelpers.getStaticObjectField(param.thisObject.getClass(), "sHandleToSensor");
-
-                List<Object> sensors = fillSensorLists(sFullSensorsList, sHandleToSensor, lpparam);
-
-                XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "sFullSensorsList").setAccessible(true);
-                XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "sHandleToSensor").setAccessible(true);
-
-                XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sHandleToSensor", sensors.get(1));
-                XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sFullSensorsList", sensors.get(0));
-
-                Class sensorEventPoolClass = XposedHelpers.findClass("android.hardware.SensorManager$SensorEventPool", lpparam.classLoader);
-                Object sPool = XposedHelpers.newInstance(sensorEventPoolClass, int.class, ((ArrayList<Sensor>)sensors.get(1)).size() * 2);
-                XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sPool", sPool);
-            }
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    public static class API18Plus extends XC_MethodHook {
-        private XC_LoadPackage.LoadPackageParam lpparam;
-
-        public API18Plus(XC_LoadPackage.LoadPackageParam lpparam) {
-            this.lpparam = lpparam;
-        }
-
-        @Override
-        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-            super.afterHookedMethod(param);
-            Object sSensorModuleLock = XposedHelpers.getStaticObjectField(param.thisObject.getClass(), "sSensorModuleLock");
-
-            synchronized (sSensorModuleLock) {
-                ArrayList<Sensor> sFullSensorsList = (ArrayList<Sensor>) XposedHelpers.getStaticObjectField(param.thisObject.getClass(), "sFullSensorsList");
-                SparseArray<Sensor> sHandleToSensor = (SparseArray<Sensor>) XposedHelpers.getStaticObjectField(param.thisObject.getClass(), "sHandleToSensor");
-
-                List<Object> sensors = fillSensorLists(sFullSensorsList, sHandleToSensor, lpparam);
-
-                XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "sFullSensorsList").setAccessible(true);
-                XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "sHandleToSensor").setAccessible(true);
-                XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sHandleToSensor", sensors.get(1));
-                XposedHelpers.setStaticObjectField(param.thisObject.getClass(), "sFullSensorsList", sensors.get(0));
-            }
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    public static class API23Plus extends XC_MethodHook {
-        private XC_LoadPackage.LoadPackageParam lpparam;
-
-        public API23Plus(XC_LoadPackage.LoadPackageParam lpparam) {
-            this.lpparam = lpparam;
-        }
-
-        @Override
-        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-            super.afterHookedMethod(param);
-            ArrayList<Sensor> mFullSensorsList = (ArrayList<Sensor>) XposedHelpers.getObjectField(param.thisObject, "mFullSensorsList");
-            SparseArray<Sensor> mHandleToSensor = ((SparseArray<Sensor>) XposedHelpers.getObjectField(param.thisObject, "mHandleToSensor")).clone();
-
-            List<Object> sensors = fillSensorLists(mFullSensorsList, mHandleToSensor, lpparam);
-
-            XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "mFullSensorsList").setAccessible(true);
-            XposedHelpers.findField(XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader), "mHandleToSensor").setAccessible(true);
-
-            XposedHelpers.setObjectField(param.thisObject, "mHandleToSensor", sensors.get(1));
-            XposedHelpers.setObjectField(param.thisObject, "mFullSensorsList", sensors.get(0));
         }
     }
 }

@@ -23,10 +23,6 @@ import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
 import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
-import fr.frazew.virtualgyroscope.hooks.SystemSensorManagerHook;
-import fr.frazew.virtualgyroscope.hooks.sensorchange.API16;
-import fr.frazew.virtualgyroscope.hooks.sensorchange.API18;
-import fr.frazew.virtualgyroscope.hooks.sensorchange.API23;
 
 public class XposedMod implements IXposedHookLoadPackage {
     public static boolean FIRST_LAUNCH_SINCE_BOOT = true;
@@ -61,6 +57,7 @@ public class XposedMod implements IXposedHookLoadPackage {
             hookPackageFeatures(lpparam); // @TODO Revisit this hook to make it more flexible
             hookSensorValues(lpparam);
             addSensors(lpparam);
+            enableSensors(lpparam);
             registerListenerHook(lpparam);
         }
 
@@ -73,15 +70,15 @@ public class XposedMod implements IXposedHookLoadPackage {
         if (Build.VERSION.SDK_INT >= 23)
             XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue",
                     lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class,
-                    new API23());
+                    new fr.frazew.virtualgyroscope.hooks.sensorchange.API23());
         else if (Build.VERSION.SDK_INT >= 18)
             XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue",
                     lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class,
-                    new API18(lpparam));
+                    new fr.frazew.virtualgyroscope.hooks.sensorchange.API18());
         else if (Build.VERSION.SDK_INT >= 16)
             XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$ListenerDelegate",
                     lpparam.classLoader, "onSensorChangedLocked", Sensor.class, float[].class, long[].class, int.class,
-                    new API16(lpparam));
+                    new fr.frazew.virtualgyroscope.hooks.sensorchange.API16());
         else XposedBridge.log("VirtualSensor: Using SDK version " + Build.VERSION.SDK_INT + ", this is not supported");
     }
 
@@ -92,16 +89,42 @@ public class XposedMod implements IXposedHookLoadPackage {
         if (Build.VERSION.SDK_INT >= 23)
             XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager",
                     lpparam.classLoader, android.content.Context.class, android.os.Looper.class,
-                    new SystemSensorManagerHook.API23Plus(lpparam));
+                    new fr.frazew.virtualgyroscope.hooks.constructor.API23(lpparam));
         else if (Build.VERSION.SDK_INT >= 18)
             XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager",
                     lpparam.classLoader, android.content.Context.class, android.os.Looper.class,
-                    new SystemSensorManagerHook.API18Plus(lpparam));
+                    new fr.frazew.virtualgyroscope.hooks.constructor.API18(lpparam));
         else if (Build.VERSION.SDK_INT >= 16)
             XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager",
                     lpparam.classLoader, android.os.Looper.class,
-                    new SystemSensorManagerHook.API1617(lpparam));
+                    new fr.frazew.virtualgyroscope.hooks.constructor.API16(lpparam));
         else XposedBridge.log("VirtualSensor: Using SDK version " + Build.VERSION.SDK_INT + ", this is not supported");
+    }
+
+    private void enableSensors(final LoadPackageParam lpparam) {
+        XposedBridge.log("VirtualSensor: Registering the enableSensor hook");
+
+        if (Build.VERSION.SDK_INT >= 18) {
+            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$BaseEventQueue", lpparam.classLoader, "enableSensor", android.hardware.Sensor.class, int.class, int.class, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    if (sensorsToEmulate.indexOfKey(((Sensor) param.args[0]).getType()) >= 0 && !sensorsToEmulate.get(((Sensor) param.args[0]).getType()).isAlreadyNative) {
+                        param.setResult(0);
+                    }
+                    super.afterHookedMethod(param);
+                }
+            });
+        } else if (Build.VERSION.SDK_INT >= 16) {
+            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager", lpparam.classLoader, "enableSensorLocked", android.hardware.Sensor.class, int.class, new XC_MethodHook() {
+                @Override
+                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                    if (sensorsToEmulate.indexOfKey(((Sensor) param.args[0]).getType()) >= 0 && !sensorsToEmulate.get(((Sensor) param.args[0]).getType()).isAlreadyNative) {
+                        param.setResult(true);
+                    }
+                    super.afterHookedMethod(param);
+                }
+            });
+        } else XposedBridge.log("VirtualSensor: Using SDK version " + Build.VERSION.SDK_INT + ", this is not supported");
     }
 
     private void registerListenerHook(final LoadPackageParam lpparam) {
@@ -135,18 +158,6 @@ public class XposedMod implements IXposedHookLoadPackage {
                 }
             });
         } else {
-
-            //TODO Check how this behaves on SDK<23
-            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$BaseEventQueue", lpparam.classLoader, "enableSensor", android.hardware.Sensor.class, int.class, int.class, new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    if (sensorsToEmulate.indexOfKey(((Sensor) param.args[0]).getType()) >= 0 && !sensorsToEmulate.get(((Sensor) param.args[0]).getType()).isAlreadyNative) {
-                        param.setResult(0);
-                    }
-                    super.afterHookedMethod(param);
-                }
-            });
-
             XposedHelpers.findAndHookMethod("android.hardware.SensorManager", lpparam.classLoader, "registerListener", android.hardware.SensorEventListener.class, android.hardware.Sensor.class, int.class, int.class, new XC_MethodHook() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam param) throws Throwable {

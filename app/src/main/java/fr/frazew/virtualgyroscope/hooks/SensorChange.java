@@ -42,7 +42,7 @@ public class SensorChange {
                 this.accelerometerValues = values;
             }
             if (listener.getSensor() != null) {
-                return getSensorValues(listener, timestamp);
+                return filterValues(getSensorValues(listener, timestamp));
             }
 
         } else if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
@@ -120,27 +120,27 @@ public class SensorChange {
         return angularRates;
     }
 
-    /*private static List<Object> filterValues(float[] values, float[][] lastFilterValues, float[] prevValues) {
-        if (Float.isInfinite(values[0]) || Float.isNaN(values[0])) values[0] = prevValues[0];
-        if (Float.isInfinite(values[1]) || Float.isNaN(values[1])) values[1] = prevValues[1];
-        if (Float.isInfinite(values[2]) || Float.isNaN(values[2])) values[2] = prevValues[2];
+    private float[] filterValues(float[] values) { // @TODO Move to a better filter, such as a Kalman filter
+        if (Float.isInfinite(values[0]) || Float.isNaN(values[0])) values[0] = this.prevValues[0];
+        if (Float.isInfinite(values[1]) || Float.isNaN(values[1])) values[1] = this.prevValues[1];
+        if (Float.isInfinite(values[2]) || Float.isNaN(values[2])) values[2] = this.prevValues[2];
 
+        float[] filteredValues = new float[3];
         float[][] newLastFilterValues = new float[3][10];
         for (int i = 0; i < 3; i++) {
             // Apply lowpass on the value
             float alpha = 0.5F;
-            float newValue = lowPass(alpha, values[i], prevValues[i]);
-            //float newValue = values[i];
+            float newValue = lowPass(alpha, values[i], this.prevValues[i]);
 
             for (int j = 0; j < 10; j++) {
                 if (j == 0) continue;
-                newLastFilterValues[i][j-1] = lastFilterValues[i][j];
+                newLastFilterValues[i][j-1] = this.lastFilterValues[i][j];
             }
             newLastFilterValues[i][9] = newValue;
 
             float sum = 0F;
             for (int j = 0; j < 10; j++) {
-                sum += lastFilterValues[i][j];
+                sum += this.lastFilterValues[i][j];
             }
             newValue = sum/10;
 
@@ -150,18 +150,14 @@ public class SensorChange {
                 if (Math.abs(newValue) < 0.01F) newValue = 0.0F;
             }
 
-            prevValues[i] = values[i];
-            values[i] = newValue;
+            this.prevValues[i] = values[i];
+            filteredValues[i] = newValue;
         }
 
-        List<Object> returnValue = new ArrayList<>();
-        returnValue.add(values);
-        returnValue.add(prevValues);
-        returnValue.add(newLastFilterValues);
-        return returnValue;
+        return filteredValues;
     }
 
     private static float lowPass(float alpha, float value, float prev) {
         return prev + alpha * (value - prev);
-    }*/
+    }
 }
