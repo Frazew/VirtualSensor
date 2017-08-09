@@ -27,9 +27,9 @@ public class API18 extends XC_MethodHook {
         Sensor s = sensors.get(handle);
 
         if (listener instanceof VirtualSensorListener) {
-            float[] values = this.mSensorChange.handleListener(s, (VirtualSensorListener) listener, ((float[]) param.args[1]).clone(), (int) param.args[2], (long) param.args[3]);
+            float[] values = this.mSensorChange.handleListener(s, (VirtualSensorListener) listener, ((float[]) param.args[1]).clone(), (int) param.args[2], (long) param.args[3], XposedMod.ACCELEROMETER_RESOLUTION, XposedMod.MAGNETIC_RESOLUTION);
             if (values != null) {
-                System.arraycopy(values, 0, ((float[]) param.args[1]), 0, ((float[]) param.args[1]).length);
+                System.arraycopy(values, 0, param.args[1], 0, values.length);
                 param.args[0] = XposedMod.sensorTypetoHandle.get(((VirtualSensorListener) listener).getSensor().getType());
             }
         }

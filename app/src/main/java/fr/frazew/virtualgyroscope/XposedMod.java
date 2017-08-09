@@ -27,8 +27,8 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage.LoadPackageParam;
 public class XposedMod implements IXposedHookLoadPackage {
     public static boolean FIRST_LAUNCH_SINCE_BOOT = true;
 
-    public static float MAGNETIC_ACCURACY; // @TODO Change this too
-    public static float ACCELEROMETER_ACCURACY; // @TODO And this
+    public static float MAGNETIC_RESOLUTION; // @TODO Change this too
+    public static float ACCELEROMETER_RESOLUTION; // @TODO And this
 
     public static final SparseIntArray sensorTypetoHandle = new SparseIntArray() {{
         append(Sensor.TYPE_ROTATION_VECTOR, 4242);
@@ -53,20 +53,18 @@ public class XposedMod implements IXposedHookLoadPackage {
                 FIRST_LAUNCH_SINCE_BOOT = false;
                 XposedBridge.log("VirtualSensor: Using version " + BuildConfig.VERSION_NAME);
             }
-
             hookPackageFeatures(lpparam); // @TODO Revisit this hook to make it more flexible
-            hookSensorValues(lpparam);
-            addSensors(lpparam);
-            enableSensors(lpparam);
-            registerListenerHook(lpparam);
         }
+
+        hookSensorValues(lpparam);
+        addSensors(lpparam);
+        enableSensors(lpparam);
+        registerListenerHook(lpparam);
 
         hookCardboard(lpparam);
     }
 
     private void hookSensorValues(final LoadPackageParam lpparam) {
-        XposedBridge.log("VirtualSensor: Hooking the sensor event handler");
-
         if (Build.VERSION.SDK_INT >= 23)
             XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue",
                     lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class,
@@ -84,8 +82,6 @@ public class XposedMod implements IXposedHookLoadPackage {
 
     @SuppressWarnings("unchecked")
     private void addSensors(final LoadPackageParam lpparam) {
-        XposedBridge.log("VirtualSensor: Adding the virtual sensors");
-
         if (Build.VERSION.SDK_INT >= 23)
             XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager",
                     lpparam.classLoader, android.content.Context.class, android.os.Looper.class,
@@ -102,8 +98,6 @@ public class XposedMod implements IXposedHookLoadPackage {
     }
 
     private void enableSensors(final LoadPackageParam lpparam) {
-        XposedBridge.log("VirtualSensor: Registering the enableSensor hook");
-
         if (Build.VERSION.SDK_INT >= 18) {
             XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$BaseEventQueue", lpparam.classLoader, "enableSensor", android.hardware.Sensor.class, int.class, int.class, new XC_MethodHook() {
                 @Override
@@ -128,8 +122,6 @@ public class XposedMod implements IXposedHookLoadPackage {
     }
 
     private void registerListenerHook(final LoadPackageParam lpparam) {
-        XposedBridge.log("VirtualSensor: Hooking the registerListener functions");
-
         if (Build.VERSION.SDK_INT <= 18) {
             XposedHelpers.findAndHookMethod("android.hardware.SensorManager", lpparam.classLoader, "registerListener", android.hardware.SensorEventListener.class, android.hardware.Sensor.class, int.class, android.os.Handler.class, new XC_MethodHook() {
                 @Override
@@ -344,6 +336,7 @@ public class XposedMod implements IXposedHookLoadPackage {
             final Class eye = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.Eye", lpparam.classLoader);
 
             if (headTransform != null) {
+                XposedBridge.log("VirtualSensor: Found the Cardboard library in " + lpparam.packageName + ", hooking HeadTransform");
                 XposedHelpers.findAndHookConstructor(headTransform, new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
@@ -377,6 +370,8 @@ public class XposedMod implements IXposedHookLoadPackage {
             }
 
             if (eye != null) {
+                XposedBridge.log("VirtualSensor: Found the Cardboard library in " + lpparam.packageName + ", hooking Eye");
+
                 XposedHelpers.findAndHookConstructor(eye, int.class, new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(final MethodHookParam param) throws Throwable {

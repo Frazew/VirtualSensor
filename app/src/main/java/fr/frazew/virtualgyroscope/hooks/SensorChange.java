@@ -36,17 +36,17 @@ public class SensorChange {
     private float[] prevRotationMatrix = new float[9];
     private long prevTimestamp = 0;
 
-    public float[] handleListener(Sensor s, VirtualSensorListener listener, float[] values, int accuracy, long timestamp) {
+    public float[] handleListener(Sensor s, VirtualSensorListener listener, float[] values, int accuracy, long timestamp, float accResolution, float magResolution) {
         if (s.getType() == Sensor.TYPE_ACCELEROMETER) {
-            if (Util.checkSensorResolution(this.accelerometerValues, values, XposedMod.ACCELEROMETER_ACCURACY)) {
+            if (Util.checkSensorResolution(this.accelerometerValues, values, accResolution)) {
                 this.accelerometerValues = values;
             }
-            if (listener.getSensor() != null) {
-                return filterValues(getSensorValues(listener, timestamp));
+            if (listener.getSensor() != null || listener.isDummyGyroListener) {
+                return this.getSensorValues(listener, timestamp);
             }
 
         } else if (s.getType() == Sensor.TYPE_MAGNETIC_FIELD) {
-            if (Util.checkSensorResolution(this.magneticValues, values, XposedMod.MAGNETIC_ACCURACY)) {
+            if (Util.checkSensorResolution(this.magneticValues, values, magResolution)) {
                 this.magneticValues = values;
             }
         }
@@ -61,7 +61,7 @@ public class SensorChange {
         if (listener.isDummyGyroListener || listener.getSensor().getType() == Sensor.TYPE_GYROSCOPE) {
             float timeDifference = Math.abs((float) (timestamp - this.prevTimestamp) * NS2S);
             if (timeDifference != 0.0F) {
-                values = this.getGyroscopeValues(timeDifference);
+                values = this.filterValues(this.getGyroscopeValues(timeDifference));
 
                 if (Float.isNaN(values[0]) || Float.isInfinite(values[0]))
                     XposedBridge.log("VirtualSensor: Value #" + 0 + " is NaN or Infinity, this should not happen");
@@ -71,8 +71,8 @@ public class SensorChange {
 
                 if (Float.isNaN(values[2]) || Float.isInfinite(values[2]))
                     XposedBridge.log("VirtualSensor: Value #" + 2 + " is NaN or Infinity, this should not happen");
+                this.prevTimestamp = timestamp;
             }
-            this.prevTimestamp = timestamp;
         } else if ((Build.VERSION.SDK_INT >= 19 && listener.getSensor().getType() == Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) || listener.getSensor().getType() == Sensor.TYPE_ROTATION_VECTOR) {
             float[] rotationMatrix = new float[9];
             SensorManager.getRotationMatrix(rotationMatrix, null, this.accelerometerValues, this.magneticValues);
@@ -117,6 +117,7 @@ public class SensorChange {
         angularRates[1] = (angleChange[2]) / timeDifference;
         angularRates[2] = (angleChange[0]) / timeDifference;
 
+        this.prevRotationMatrix = rotationMatrix;
         return angularRates;
     }
 
@@ -150,10 +151,11 @@ public class SensorChange {
                 if (Math.abs(newValue) < 0.01F) newValue = 0.0F;
             }
 
-            this.prevValues[i] = values[i];
             filteredValues[i] = newValue;
         }
 
+        this.prevValues = filteredValues;
+        this.lastFilterValues = newLastFilterValues;
         return filteredValues;
     }
 
