@@ -28,7 +28,7 @@ public class API16 extends XC_MethodHook {
             if (values != null) {
                 System.arraycopy(values, 0, param.args[1], 0, values.length);
                 param.args[0] = ((VirtualSensorListener) listener).getSensor();
-            }
+            } else param.setResult(null);
         }
     }
 }

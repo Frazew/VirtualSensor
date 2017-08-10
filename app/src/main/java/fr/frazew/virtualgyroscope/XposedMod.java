@@ -97,17 +97,34 @@ public class XposedMod implements IXposedHookLoadPackage {
         else XposedBridge.log("VirtualSensor: Using SDK version " + Build.VERSION.SDK_INT + ", this is not supported");
     }
 
-    private void enableSensors(final LoadPackageParam lpparam) {
+    private void enableSensors(final LoadPackageParam lpparam) throws XposedHelpers.ClassNotFoundError {
         if (Build.VERSION.SDK_INT >= 18) {
-            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$BaseEventQueue", lpparam.classLoader, "enableSensor", android.hardware.Sensor.class, int.class, int.class, new XC_MethodHook() {
-                @Override
-                protected void afterHookedMethod(MethodHookParam param) throws Throwable {
-                    if (sensorsToEmulate.indexOfKey(((Sensor) param.args[0]).getType()) >= 0 && !sensorsToEmulate.get(((Sensor) param.args[0]).getType()).isAlreadyNative) {
-                        param.setResult(0);
+            try {
+                XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$BaseEventQueue", lpparam.classLoader, "enableSensor", android.hardware.Sensor.class, int.class, int.class, new XC_MethodHook() {
+                    @Override
+                    protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                        if (sensorsToEmulate.indexOfKey(((Sensor) param.args[0]).getType()) >= 0 && !sensorsToEmulate.get(((Sensor) param.args[0]).getType()).isAlreadyNative) {
+                            param.setResult(0);
+                        }
+                        super.afterHookedMethod(param);
                     }
-                    super.afterHookedMethod(param);
+                });
+            } catch (NoSuchMethodError e) {
+                XposedBridge.log("VirtualSensor: Could not hook the AOSP enableSensor method, trying an alternative hook.");
+                try {
+                    XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$BaseEventQueue", lpparam.classLoader, "enableSensor", android.hardware.Sensor.class, int.class, int.class, int.class, new XC_MethodHook() {
+                        @Override
+                        protected void afterHookedMethod(MethodHookParam param) throws Throwable {
+                            if (sensorsToEmulate.indexOfKey(((Sensor) param.args[0]).getType()) >= 0 && !sensorsToEmulate.get(((Sensor) param.args[0]).getType()).isAlreadyNative) {
+                                param.setResult(0);
+                            }
+                            super.afterHookedMethod(param);
+                        }
+                    });
+                } catch (NoSuchMethodError e1) {
+                    XposedBridge.log("VirtualSensor: The alternative enableSensor hook failed, but the module might still work.");
                 }
-            });
+            }
         } else if (Build.VERSION.SDK_INT >= 16) {
             XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager", lpparam.classLoader, "enableSensorLocked", android.hardware.Sensor.class, int.class, new XC_MethodHook() {
                 @Override
@@ -332,11 +349,23 @@ public class XposedMod implements IXposedHookLoadPackage {
     @SuppressWarnings("unchecked")
     private void hookCardboard(final LoadPackageParam lpparam) {
         try {
-            final Class headTransform = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.HeadTransform", lpparam.classLoader);
-            final Class eye = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.Eye", lpparam.classLoader);
+            Class headTransformTMP = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.HeadTransform", lpparam.classLoader);
+            Class eyeTMP = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.Eye", lpparam.classLoader);
+
+            if (headTransformTMP == null) {
+                headTransformTMP = XposedHelpers.findClassIfExists("com.google.vr.sdk.base.HeadTransform", lpparam.classLoader);
+                if (headTransformTMP != null) XposedBridge.log("VirtualSensor: Did not find com.google.vrtoolkit.cardboard.HeadTransform but found com.google.vr.sdk.base.HeadTransform");
+            }
+            if (eyeTMP == null) {
+                eyeTMP = XposedHelpers.findClassIfExists("com.google.vr.sdk.base.Eye", lpparam.classLoader);
+                if (eyeTMP != null) XposedBridge.log("VirtualSensor: Did not find com.google.vrtoolkit.cardboard.Eye but found com.google.vr.sdk.base.Eye");
+            }
+
+            final Class headTransform = headTransformTMP;
+            final Class eye = eyeTMP;
 
             if (headTransform != null) {
-                XposedBridge.log("VirtualSensor: Found the Cardboard library in " + lpparam.packageName + ", hooking HeadTransform");
+                XposedBridge.log("VirtualSensor: Found the Google Cardboard library in " + lpparam.packageName + ", hooking HeadTransform");
                 XposedHelpers.findAndHookConstructor(headTransform, new XC_MethodHook() {
                     @Override
                     protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
@@ -370,7 +399,7 @@ public class XposedMod implements IXposedHookLoadPackage {
             }
 
             if (eye != null) {
-                XposedBridge.log("VirtualSensor: Found the Cardboard library in " + lpparam.packageName + ", hooking Eye");
+                XposedBridge.log("VirtualSensor: Found the Google Cardboard library in " + lpparam.packageName + ", hooking Eye");
 
                 XposedHelpers.findAndHookConstructor(eye, int.class, new XC_MethodHook() {
                     @Override

@@ -23,6 +23,7 @@ import fr.frazew.virtualgyroscope.XposedMod;
 public class SensorChange {
     private static final float[] GRAVITY = new float[] {0F, 0F, 9.81F};
     private static final float NS2S = 1.0f / 1000000000.0f;
+    private static final float LOWPASS_ALPHA = 0.5F;
 
     // Filter stuff @TODO
     private float lastFilterValues[][] = new float[3][10];
@@ -35,6 +36,8 @@ public class SensorChange {
     //Keeping track of the previous rotation matrix and timestamp
     private float[] prevRotationMatrix = new float[9];
     private long prevTimestamp = 0;
+
+    private SparseArray<float[]> filterValues = new SparseArray<>();
 
     public float[] handleListener(Sensor s, VirtualSensorListener listener, float[] values, int accuracy, long timestamp, float accResolution, float magResolution) {
         if (s.getType() == Sensor.TYPE_ACCELEROMETER) {
@@ -61,7 +64,7 @@ public class SensorChange {
         if (listener.isDummyGyroListener || listener.getSensor().getType() == Sensor.TYPE_GYROSCOPE) {
             float timeDifference = Math.abs((float) (timestamp - this.prevTimestamp) * NS2S);
             if (timeDifference != 0.0F) {
-                values = this.filterValues(this.getGyroscopeValues(timeDifference));
+                values = this.getGyroscopeValues(timeDifference);
 
                 if (Float.isNaN(values[0]) || Float.isInfinite(values[0]))
                     XposedBridge.log("VirtualSensor: Value #" + 0 + " is NaN or Infinity, this should not happen");
@@ -97,7 +100,28 @@ public class SensorChange {
             values[2] = this.accelerometerValues[2] - (GRAVITY[0] * rotationMatrix[2] + GRAVITY[1] * rotationMatrix[5] + GRAVITY[2] * rotationMatrix[8]);
         }
 
-        return values;
+        return sensorLowPass(values, listener.isDummyGyroListener ? 42 : listener.getSensor().getType());
+    }
+
+    private float[] sensorLowPass(float[] values, int sensorType) {
+        float[] filteredValues = new float[values.length];
+        float[] previousValues = this.filterValues.get(sensorType);
+
+        if (previousValues == null) { // This sensor hasn't been used, add it and return the values
+            this.filterValues.put(sensorType, values);
+            filteredValues = values.clone();
+        } else {
+            for (int i = 0; i < values.length; i++) {
+                filteredValues[i] = lowPass(LOWPASS_ALPHA, values[i], previousValues[i]);
+            }
+            this.filterValues.put(sensorType, filteredValues);
+        }
+
+        return filteredValues;
+    }
+
+    private static float lowPass(float alpha, float value, float prev) {
+        return prev + alpha * (value - prev);
     }
 
     private float[] getGyroscopeValues(float timeDifference) {
@@ -135,7 +159,7 @@ public class SensorChange {
 
             for (int j = 0; j < 10; j++) {
                 if (j == 0) continue;
-                newLastFilterValues[i][j-1] = this.lastFilterValues[i][j];
+                newLastFilterValues[i][j - 1] = this.lastFilterValues[i][j];
             }
             newLastFilterValues[i][9] = newValue;
 
@@ -143,7 +167,7 @@ public class SensorChange {
             for (int j = 0; j < 10; j++) {
                 sum += this.lastFilterValues[i][j];
             }
-            newValue = sum/10;
+            newValue = sum / 10;
 
             //The gyroscope is moving even after lowpass
             if (newValue != 0.0F) {
@@ -157,9 +181,5 @@ public class SensorChange {
         this.prevValues = filteredValues;
         this.lastFilterValues = newLastFilterValues;
         return filteredValues;
-    }
-
-    private static float lowPass(float alpha, float value, float prev) {
-        return prev + alpha * (value - prev);
     }
 }

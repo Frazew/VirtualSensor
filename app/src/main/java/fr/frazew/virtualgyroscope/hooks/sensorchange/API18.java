@@ -5,6 +5,7 @@ import android.util.SparseArray;
 
 import de.robv.android.xposed.XC_MethodHook;
 import de.robv.android.xposed.XposedHelpers;
+import de.robv.android.xposed.callbacks.XC_LoadPackage;
 import fr.frazew.virtualgyroscope.VirtualSensorListener;
 import fr.frazew.virtualgyroscope.XposedMod;
 import fr.frazew.virtualgyroscope.hooks.SensorChange;
@@ -31,7 +32,7 @@ public class API18 extends XC_MethodHook {
             if (values != null) {
                 System.arraycopy(values, 0, param.args[1], 0, values.length);
                 param.args[0] = XposedMod.sensorTypetoHandle.get(((VirtualSensorListener) listener).getSensor().getType());
-            }
+            } else param.setResult(null);
         }
     }
 }
