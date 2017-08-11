@@ -76,7 +76,7 @@ public class SensorChange {
                     XposedBridge.log("VirtualSensor: Value #" + 2 + " is NaN or Infinity, this should not happen");
                 this.prevTimestamp = timestamp;
             }
-        } else if ((Build.VERSION.SDK_INT >= 19 && listener.getSensor().getType() == Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) || listener.getSensor().getType() == Sensor.TYPE_ROTATION_VECTOR) {
+        } else if ((Build.VERSION.SDK_INT >= 18 && listener.getSensor().getType() == Sensor.TYPE_GAME_ROTATION_VECTOR) || (Build.VERSION.SDK_INT >= 19 && listener.getSensor().getType() == Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR) || listener.getSensor().getType() == Sensor.TYPE_ROTATION_VECTOR) {
             float[] rotationMatrix = new float[9];
             SensorManager.getRotationMatrix(rotationMatrix, null, this.accelerometerValues, this.magneticValues);
             float[] quaternion = Util.rotationMatrixToQuaternion(rotationMatrix);

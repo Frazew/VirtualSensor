@@ -36,6 +36,7 @@ public class XposedMod implements IXposedHookLoadPackage {
         if (Build.VERSION.SDK_INT >= 19) put(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, 4244);
         append(Sensor.TYPE_GRAVITY, 4245);
         append(Sensor.TYPE_LINEAR_ACCELERATION, 4246);
+        if (Build.VERSION.SDK_INT >= 18) append(Sensor.TYPE_GAME_ROTATION_VECTOR, 4247);
     }};
 
     public static final SparseArray<SensorModel> sensorsToEmulate = new SparseArray<SensorModel>() {{
@@ -44,6 +45,7 @@ public class XposedMod implements IXposedHookLoadPackage {
         if (Build.VERSION.SDK_INT >= 19) append(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR, "VirtualSensor GeomagneticRotationVector", sensorTypetoHandle.get(Sensor.TYPE_GEOMAGNETIC_ROTATION_VECTOR), 0.01F, -1, -1, (Build.VERSION.SDK_INT > 19) ? Sensor.STRING_TYPE_GEOMAGNETIC_ROTATION_VECTOR : "", "none"));
         append(Sensor.TYPE_GRAVITY, new SensorModel(Sensor.TYPE_GRAVITY, "VirtualSensor Gravity", sensorTypetoHandle.get(Sensor.TYPE_GRAVITY), 0.01F, -1, -1, (Build.VERSION.SDK_INT > 19) ? Sensor.STRING_TYPE_GRAVITY : "", "none"));
         append(Sensor.TYPE_LINEAR_ACCELERATION, new SensorModel(Sensor.TYPE_LINEAR_ACCELERATION, "VirtualSensor LinearAcceleration", sensorTypetoHandle.get(Sensor.TYPE_LINEAR_ACCELERATION), 0.01F, -1, -1, (Build.VERSION.SDK_INT > 19) ? Sensor.STRING_TYPE_LINEAR_ACCELERATION : "", "none")); // Had to use another handle as it broke the magnetic sensor's readings (?!)
+        if (Build.VERSION.SDK_INT >= 18) append(Sensor.TYPE_GAME_ROTATION_VECTOR, new SensorModel(Sensor.TYPE_GAME_ROTATION_VECTOR, "VirtualSensor GameRotationVector", sensorTypetoHandle.get(Sensor.TYPE_GAME_ROTATION_VECTOR), 0.01F, -1, -1, (Build.VERSION.SDK_INT > 19) ? Sensor.STRING_TYPE_GAME_ROTATION_VECTOR : "", "none"));
     }};
 
     @Override
@@ -363,6 +365,7 @@ public class XposedMod implements IXposedHookLoadPackage {
 
             final Class headTransform = headTransformTMP;
             final Class eye = eyeTMP;
+            final int sensorToUse = Build.VERSION.SDK_INT >= 18 ? Sensor.TYPE_GAME_ROTATION_VECTOR : Sensor.TYPE_ROTATION_VECTOR;
 
             if (headTransform != null) {
                 XposedBridge.log("VirtualSensor: Found the Google Cardboard library in " + lpparam.packageName + ", hooking HeadTransform");
@@ -373,7 +376,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                         SensorEventListener listener = new SensorEventListener() {
                             @Override
                             public void onSensorChanged(SensorEvent event) {
-                                if (event.sensor.getType() == Sensor.TYPE_ROTATION_VECTOR) {
+                                if (event.sensor.getType() == sensorToUse) {
                                     if (event.values != null) {
                                         try {
                                             Field htMatrix = XposedHelpers.findFirstFieldByExactType(headTransform, float[].class);
@@ -392,7 +395,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                             public void onAccuracyChanged(Sensor sensor, int accuracy) {
                             }
                         };
-                        mgr.registerListener(listener, mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR), mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR).getMinDelay());
+                        mgr.registerListener(listener, mgr.getDefaultSensor(sensorToUse), mgr.getDefaultSensor(sensorToUse).getMinDelay());
                         super.afterHookedMethod(param);
                     }
                 });
@@ -427,13 +430,15 @@ public class XposedMod implements IXposedHookLoadPackage {
                             SensorEventListener listener = new SensorEventListener() {
                                 @Override
                                 public void onSensorChanged(SensorEvent event) {
-                                    if (event.values != null) {
-                                        try {
-                                            float[] rotationMatrix = new float[16];
-                                            SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
-                                            XposedHelpers.setObjectField(param.thisObject, finalMatrixField.getName(), rotationMatrix);
-                                        } catch (Exception e) {
-                                            e.printStackTrace();
+                                    if (event.sensor.getType() == sensorToUse) {
+                                        if (event.values != null) {
+                                            try {
+                                                float[] rotationMatrix = new float[16];
+                                                SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
+                                                XposedHelpers.setObjectField(param.thisObject, finalMatrixField.getName(), rotationMatrix);
+                                            } catch (Exception e) {
+                                                e.printStackTrace();
+                                            }
                                         }
                                     }
                                 }
@@ -442,7 +447,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                                 public void onAccuracyChanged(Sensor sensor, int accuracy) {
                                 }
                             };
-                            mgr.registerListener(listener, mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR), mgr.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR).getMinDelay());
+                            mgr.registerListener(listener, mgr.getDefaultSensor(sensorToUse), mgr.getDefaultSensor(sensorToUse).getMinDelay());
                         }
                         super.afterHookedMethod(param);
                     }
