@@ -20,8 +20,10 @@ public class VirtualSensorListener implements SensorEventListener {
 
     @Override
     public void onSensorChanged(SensorEvent event) {
-        event.accuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH;
-        realListener.onSensorChanged(event);
+        if (event.sensor.getType() == this.registeredSensor.getType()) {
+            event.accuracy = SensorManager.SENSOR_STATUS_ACCURACY_HIGH;
+            realListener.onSensorChanged(event);
+        }
     }
 
     public Sensor getSensor() {

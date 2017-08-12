@@ -32,7 +32,7 @@ public class API23 extends XC_MethodHook {
             if (values != null) {
                 System.arraycopy(values, 0, param.args[1], 0, values.length);
                 param.args[0] = XposedMod.sensorTypetoHandle.get(((VirtualSensorListener) listener).getSensor().getType());
-            } else param.setResult(null);
+            }// else param.setResult(null);
         }
     }
 }
