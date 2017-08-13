@@ -352,19 +352,14 @@ public class XposedMod implements IXposedHookLoadPackage {
     private void hookCardboard(final LoadPackageParam lpparam) {
         try {
             Class headTransformTMP = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.HeadTransform", lpparam.classLoader);
-            Class eyeTMP = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.Eye", lpparam.classLoader);
 
             if (headTransformTMP == null) {
                 headTransformTMP = XposedHelpers.findClassIfExists("com.google.vr.sdk.base.HeadTransform", lpparam.classLoader);
-                if (headTransformTMP != null) XposedBridge.log("VirtualSensor: Did not find com.google.vrtoolkit.cardboard.HeadTransform but found com.google.vr.sdk.base.HeadTransform");
-            }
-            if (eyeTMP == null) {
-                eyeTMP = XposedHelpers.findClassIfExists("com.google.vr.sdk.base.Eye", lpparam.classLoader);
-                if (eyeTMP != null) XposedBridge.log("VirtualSensor: Did not find com.google.vrtoolkit.cardboard.Eye but found com.google.vr.sdk.base.Eye");
+                if (headTransformTMP != null)
+                    XposedBridge.log("VirtualSensor: Did not find com.google.vrtoolkit.cardboard.HeadTransform but found com.google.vr.sdk.base.HeadTransform");
             }
 
             final Class headTransform = headTransformTMP;
-            final Class eye = eyeTMP;
             final int sensorToUse = Build.VERSION.SDK_INT >= 18 ? Sensor.TYPE_GAME_ROTATION_VECTOR : Sensor.TYPE_ROTATION_VECTOR;
 
             if (headTransform != null) {
@@ -380,7 +375,7 @@ public class XposedMod implements IXposedHookLoadPackage {
                                     if (event.values != null) {
                                         try {
                                             Field htMatrix = XposedHelpers.findFirstFieldByExactType(headTransform, float[].class);
-                                            float[] rotationMatrix = (float[])htMatrix.get(param.thisObject);
+                                            float[] rotationMatrix = (float[]) htMatrix.get(param.thisObject);
                                             SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
 
                                             XposedHelpers.setObjectField(param.thisObject, htMatrix.getName(), rotationMatrix);
@@ -401,58 +396,6 @@ public class XposedMod implements IXposedHookLoadPackage {
                 });
             }
 
-            if (eye != null) {
-                XposedBridge.log("VirtualSensor: Found the Google Cardboard library in " + lpparam.packageName + ", hooking Eye");
-
-                XposedHelpers.findAndHookConstructor(eye, int.class, new XC_MethodHook() {
-                    @Override
-                    protected void afterHookedMethod(final MethodHookParam param) throws Throwable {
-                        SensorManager mgr = (SensorManager) AndroidAppHelper.currentApplication().getSystemService(Context.SENSOR_SERVICE);
-
-                        Field matrixField = null;
-                        for (Field field : eye.getDeclaredFields()) {
-                                if (field.getType() == float[].class) {
-                                    field.setAccessible(true);
-
-                                    Object value = field.get(param.thisObject);
-                                    if (value != null && ((float[])value).length == 16) {
-                                        matrixField = field;
-                                        break;
-                                    }
-                                }
-                        }
-
-                        final Field finalMatrixField = matrixField;
-                        if (matrixField == null) {
-                            XposedBridge.log("VirtualSensor: Did not find the field containing the matrix, aborting hook");
-                        } else {
-                            XposedBridge.log("VirtualSensor: Found the field containing the eye matrix, name is " + matrixField.getName());
-                            SensorEventListener listener = new SensorEventListener() {
-                                @Override
-                                public void onSensorChanged(SensorEvent event) {
-                                    if (event.sensor.getType() == sensorToUse) {
-                                        if (event.values != null) {
-                                            try {
-                                                float[] rotationMatrix = new float[16];
-                                                SensorManager.getRotationMatrixFromVector(rotationMatrix, event.values);
-                                                XposedHelpers.setObjectField(param.thisObject, finalMatrixField.getName(), rotationMatrix);
-                                            } catch (Exception e) {
-                                                e.printStackTrace();
-                                            }
-                                        }
-                                    }
-                                }
-
-                                @Override
-                                public void onAccuracyChanged(Sensor sensor, int accuracy) {
-                                }
-                            };
-                            mgr.registerListener(listener, mgr.getDefaultSensor(sensorToUse), mgr.getDefaultSensor(sensorToUse).getMinDelay());
-                        }
-                        super.afterHookedMethod(param);
-                    }
-                });
-            }
         } catch (Exception e) {e.printStackTrace();}
     }
 }
