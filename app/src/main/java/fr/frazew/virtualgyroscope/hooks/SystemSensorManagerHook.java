@@ -6,6 +6,7 @@ import android.util.SparseArray;
 
 import java.lang.reflect.InvocationTargetException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 
@@ -22,7 +23,7 @@ public class SystemSensorManagerHook {
         SYSTEM_SENSOR_MANAGER = XposedHelpers.findClass("android.hardware.SystemSensorManager", lpparam.classLoader);
     }
 
-    public void fillSensorLists(ArrayList<Sensor> fullSensorList, SparseArray<Sensor> handleToSensor) throws IllegalAccessException, InstantiationException, InvocationTargetException {
+    public void fillSensorLists(ArrayList<Sensor> fullSensorList, Object handleToSensor) throws IllegalAccessException, InstantiationException, InvocationTargetException {
         Iterator<Sensor> iterator = fullSensorList.iterator();
 
         int minDelayAccelerometer = 0;
@@ -73,7 +74,8 @@ public class SystemSensorManagerHook {
                     XposedHelpers.setObjectField(s, "mRequiredPermission", model.permission);
 
                 fullSensorList.add(s);
-                handleToSensor.put(model.handle, s);
+                if (handleToSensor.getClass() == SparseArray.class) ((SparseArray) handleToSensor).put(model.handle, s);
+                else if (handleToSensor.getClass() == HashMap.class) ((HashMap) handleToSensor).put(model.handle, s);
             }
         }
     }

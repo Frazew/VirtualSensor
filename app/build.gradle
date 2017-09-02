@@ -8,8 +8,8 @@ android {
         applicationId "fr.frazew.virtualgyroscope"
         minSdkVersion 16
         targetSdkVersion 23
-        versionCode 150
-        versionName "1.5"
+        versionCode 151
+        versionName "1.5.1"
         resConfigs "nodpi", "hdpi"
     }
     buildTypes {

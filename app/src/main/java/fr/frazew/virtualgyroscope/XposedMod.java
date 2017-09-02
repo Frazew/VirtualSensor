@@ -67,7 +67,11 @@ public class XposedMod implements IXposedHookLoadPackage {
     }
 
     private void hookSensorValues(final LoadPackageParam lpparam) {
-        if (Build.VERSION.SDK_INT >= 23)
+        if (Build.VERSION.SDK_INT >= 24)
+            XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue",
+                    lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class,
+                    new fr.frazew.virtualgyroscope.hooks.sensorchange.API24());
+        else if (Build.VERSION.SDK_INT == 23)
             XposedHelpers.findAndHookMethod("android.hardware.SystemSensorManager$SensorEventQueue",
                     lpparam.classLoader, "dispatchSensorEvent", int.class, float[].class, int.class, long.class,
                     new fr.frazew.virtualgyroscope.hooks.sensorchange.API23());
@@ -84,7 +88,11 @@ public class XposedMod implements IXposedHookLoadPackage {
 
     @SuppressWarnings("unchecked")
     private void addSensors(final LoadPackageParam lpparam) {
-        if (Build.VERSION.SDK_INT >= 23)
+        if (Build.VERSION.SDK_INT >= 24)
+            XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager",
+                    lpparam.classLoader, android.content.Context.class, android.os.Looper.class,
+                    new fr.frazew.virtualgyroscope.hooks.constructor.API24(lpparam));
+        else if (Build.VERSION.SDK_INT == 23)
             XposedHelpers.findAndHookConstructor("android.hardware.SystemSensorManager",
                     lpparam.classLoader, android.content.Context.class, android.os.Looper.class,
                     new fr.frazew.virtualgyroscope.hooks.constructor.API23(lpparam));
