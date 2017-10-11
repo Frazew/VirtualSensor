@@ -359,10 +359,16 @@ public class XposedMod implements IXposedHookLoadPackage {
     @SuppressWarnings("unchecked")
     private void hookCardboard(final LoadPackageParam lpparam) {
         try {
-            Class headTransformTMP = XposedHelpers.findClassIfExists("com.google.vrtoolkit.cardboard.HeadTransform", lpparam.classLoader);
+            Class headTransformTMP = null;
+
+            try {
+                headTransformTMP = XposedHelpers.findClass("com.google.vrtoolkit.cardboard.HeadTransform", lpparam.classLoader);
+            } catch (XposedHelpers.ClassNotFoundError e) {}
 
             if (headTransformTMP == null) {
-                headTransformTMP = XposedHelpers.findClassIfExists("com.google.vr.sdk.base.HeadTransform", lpparam.classLoader);
+                try {
+                    headTransformTMP = XposedHelpers.findClass("com.google.vr.sdk.base.HeadTransform", lpparam.classLoader);
+                } catch (XposedHelpers.ClassNotFoundError e) {}
                 if (headTransformTMP != null)
                     XposedBridge.log("VirtualSensor: Did not find com.google.vrtoolkit.cardboard.HeadTransform but found com.google.vr.sdk.base.HeadTransform");
             }
