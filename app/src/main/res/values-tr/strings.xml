@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">VirtualSensor</string>
+
+    <string name="hello_world" translatable="false">Hello world!</string>
+    <string name="action_settings">Ayarlar</string>
+    <string name="str_module_information">Modül bilgisi:</string>
+    <string name="str_version">Sürüm:</string>
+    <string name="str_accelerometer">İvmeölçer:</string>
+    <string name="str_accelerometer_values">İvmeölçer değerleri:</string>
+    <string name="str_magnetic_sensor">Manyetik sensör:</string>
+    <string name="str_magnetic_values">Manyetik değerler:</string>
+    <string name="str_gyroscope">Jiroskop:</string>
+    <string name="str_gyroscope_values">Jiroskop değerleri:</string>
+    <string name="str_theoretical_values">Teorik değerler:</string>
+    <string name="str_values_identical">Özdeş değerler:</string>
+</resources>
