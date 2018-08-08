@@ -2,26 +2,26 @@ apply plugin: 'com.android.application'
 
 android {
     compileSdkVersion 23
-    buildToolsVersion "23.0.2"
+    buildToolsVersion '27.0.3'
 
     defaultConfig {
         applicationId "fr.frazew.virtualgyroscope"
         minSdkVersion 16
         targetSdkVersion 23
-        versionCode 151
-        versionName "1.5.1"
-        resConfigs "nodpi", "hdpi"
+        versionCode 152
+        versionName "1.5.2"
     }
     buildTypes {
         release {
             shrinkResources true
+            minifyEnabled true
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
 }
 
 dependencies {
-    compile fileTree(include: ['*.jar'], dir: 'libs')
-    provided 'de.robv.android.xposed:api:82'
-    compile 'com.android.support:appcompat-v7:23.0.1'
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
+    compileOnly 'de.robv.android.xposed:api:82'
+    implementation 'com.android.support:appcompat-v7:23.0.1'
 }
